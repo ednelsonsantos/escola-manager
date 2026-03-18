@@ -4,7 +4,7 @@ import {
   LayoutDashboard, Users, DollarSign, BookOpen, Settings,
   Bell, Sun, Moon, ChevronRight,
   BarChart2, Calendar, Search, X, CheckCircle, AlertCircle, Info,
-  AlertTriangle, Clock, LogOut, UserCog, Shield
+  AlertTriangle, Clock, LogOut, UserCog, Shield, ClipboardList
 } from 'lucide-react'
 import { useApp, formatBRL, mesAtualDinamico } from './context/AppContext.jsx'
 import { useAuth }  from './context/AuthContext.jsx'
@@ -32,6 +32,7 @@ const NAV_ITEMS = [
   { label:'Alunos',     icon:Users,           path:'/alunos',       perm:'alunos'     },
   { label:'Financeiro', icon:DollarSign,      path:'/financeiro',   perm:'financeiro' },
   { label:'Cursos',     icon:BookOpen,        path:'/cursos',       perm:'cursos'     },
+  { label:'Frequência', icon:ClipboardList,   path:'/frequencia',   perm:'cursos'     },
   { label:'Relatórios', icon:BarChart2,       path:'/relatorios',   perm:'relatorios' },
   { label:'Agenda',     icon:Calendar,        path:'/agenda',       perm:'agenda'     },
 ]
