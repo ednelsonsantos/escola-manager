@@ -3,8 +3,11 @@ name: Build & Release
 on:
   push:
     tags:
-      - 'v*'          # Dispara em qualquer tag v5.5.1, v6.0.0, etc.
-  workflow_dispatch:   # Permite rodar manualmente pelo GitHub UI
+      - 'v*'
+  workflow_dispatch:
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   build-windows:
