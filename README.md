@@ -1,4 +1,4 @@
-# 🎓 Escola Manager v5.4
+# 🎓 Escola Manager v5.5.2
 
 Sistema desktop completo para gestão de escolas de idiomas.
 **React 18 + Electron 29 + SQLite · GPL-3.0 · Criado por Ednelson Santos**
@@ -36,6 +36,7 @@ npm run build     # gera instalador .exe para Windows
 4. **Cursos → Nova Turma** — crie as turmas
 5. **Alunos → Novo Aluno** — cadastre os alunos
 6. **Financeiro → Gerar Mensalidades** — gere as cobranças
+7. **Frequência** — registre chamadas por turma
 
 ---
 
@@ -47,9 +48,9 @@ npm run build     # gera instalador .exe para Windows
 | **Alunos** | Cadastro, ficha individual, histórico de pagamentos, paginação |
 | **Financeiro** | Mensalidades, confirmação, encargos, boleto PDF, cobrança WhatsApp |
 | **Cursos** | Turmas com barra de ocupação, professores |
+| **Frequência** | Chamada por turma/aula, relatório de presença com PDF |
 | **Relatórios** | Financeiro, alunos e cursos — com exportação CSV e **PDF** |
 | **Agenda** | Calendário mensal + lista de eventos |
-| **Frequência** | Chamada por turma/aula, relatório de presença com PDF |
 | **Usuários** | Contas, perfis e permissões por módulo |
 | **Log de Auditoria** | Histórico completo de todas as ações |
 | **Configurações** | Escola, financeiro, aparência, backup, restauração |
@@ -87,7 +88,7 @@ Botão 💬 verde em cada linha pendente/atrasada no Financeiro.
 
 ## 🎓 Módulo de Frequência
 
-**Financeiro → Frequência** no menu lateral.
+**Cursos → Frequência** no menu lateral (fica logo abaixo de Cursos na barra lateral).
 
 ### Fazer chamada:
 1. Selecione a turma
@@ -185,13 +186,12 @@ escola-v5/
 │   │   ├── AuthContext.jsx   # Sessão e identidade visual
 │   │   └── UsuariosContext.jsx
 │   ├── pages/
-│   │   ├── Dashboard.jsx    ├── Alunos.jsx     ├── EditarAluno.jsx
-│   │   ├── Financeiro.jsx   ├── Cursos.jsx     ├── EditarTurma.jsx
-│   │   ├── EditarProfessor.jsx ├── Relatorios.jsx ├── Agenda.jsx
-│   │   ├── EditarEvento.jsx ├── Frequencia.jsx ├── Usuarios.jsx
-│   │   ├── EditarUsuario.jsx ├── EditarPerfil.jsx ├── AuditLog.jsx
-│   │   ├── Configuracoes.jsx
-│   │   └── Sobre.jsx
+│   │   ├── Dashboard.jsx      ├── Alunos.jsx       ├── EditarAluno.jsx
+│   │   ├── Financeiro.jsx     ├── Cursos.jsx       ├── EditarTurma.jsx
+│   │   ├── EditarProfessor.jsx├── Frequencia.jsx   ├── Relatorios.jsx
+│   │   ├── Agenda.jsx         ├── EditarEvento.jsx ├── Usuarios.jsx
+│   │   ├── EditarUsuario.jsx  ├── EditarPerfil.jsx ├── AuditLog.jsx
+│   │   ├── Configuracoes.jsx  └── Sobre.jsx
 │   └── style.css      # Design system completo (dark + light)
 ```
 
@@ -201,6 +201,21 @@ escola-v5/
 
 **Criado por:** Ednelson Santos · [github.com/ednelsonsantos](https://github.com/ednelsonsantos)
 **Licença:** GPL-3.0-or-later · **Copyright:** © 2025 Ednelson Santos
+
+---
+
+## ⚡ GitHub Actions
+
+O workflow `.github/workflows/build.yml` compila e publica o `.exe` automaticamente ao criar uma tag `v*`.
+
+**Permissão necessária** — já configurada no `build.yml`:
+```yaml
+permissions:
+  contents: write
+```
+
+Caso veja erro 403 ao criar Release, verifique também:
+**Settings → Actions → General → Workflow permissions → Read and write permissions**
 
 ---
 

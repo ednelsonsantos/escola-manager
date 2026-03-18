@@ -4,6 +4,14 @@ Formato: [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/) · [SemVer]
 
 ---
 
+## [5.5.2] — 2025-03
+
+### Corrigido
+- **Frequência ausente no menu lateral** — `Frequencia.jsx` existia e a rota `/frequencia` funcionava, mas o item nunca havia sido adicionado ao array `NAV_ITEMS` do sidebar. Adicionado entre Cursos e Relatórios com ícone `ClipboardList`
+- **GitHub Actions 403 ao criar Release** — `GITHUB_TOKEN` tem permissão de leitura por padrão; criação de Release exige escrita. Adicionado `permissions: contents: write` no `build.yml`. Também adicionado `FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true` como variável global para suprimir aviso de depreciação do Node.js 20 no Actions (obrigatório a partir de Jun/2026)
+
+---
+
 ## [5.5.1] — 2025-03
 
 ### Corrigido

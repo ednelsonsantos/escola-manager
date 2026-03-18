@@ -14,7 +14,7 @@ const AUTOR = {
   cor:     '#63dcaa',
 }
 
-const VERSAO = '5.5.1'
+const VERSAO = '5.5.2'
 const ANO    = '2025'
 
 const MODULOS = [
@@ -48,6 +48,11 @@ const DEPS = [
 ]
 
 const HISTORICO = [
+  { versao:'5.5.2', data:'Mar/2025', destaques:[
+    'Fix: Frequência adicionada ao menu lateral (entre Cursos e Relatórios)',
+    'Fix: GitHub Actions 403 ao criar Release — permissions: contents: write',
+    'Fix: aviso Node.js 20 depreciado no Actions — FORCE_JAVASCRIPT_ACTIONS_TO_NODE24',
+  ]},
   { versao:'5.5.1', data:'Mar/2025', destaques:[
     'Fix: tamanho de texto agora usa CSS zoom — escala fontes, espaçamentos e ícones',
     'Fix: painel de notificações ficava atrás do conteúdo (overflow: hidden no topbar)',
