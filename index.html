@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta http-equiv="Content-Security-Policy"
+    content="default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob:;
+             script-src 'self' 'unsafe-inline' 'unsafe-eval';
+             style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
+             font-src 'self' data: https://fonts.gstatic.com;
+             img-src 'self' data: blob:;
+             connect-src 'self' https://wa.me;"/>
+  <title>Escola Manager</title>
+  <style>
+    /* Syne — carregada via Google Fonts com font-display:swap para não bloquear */
+    @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300&display=swap');
+
+    /* Fallback imediato — garante que a UI apareça mesmo sem internet */
+    :root {
+      --font-ui:   'DM Sans', 'Segoe UI', system-ui, -apple-system, sans-serif;
+      --font-head: 'Syne',    'Segoe UI', system-ui, -apple-system, sans-serif;
+    }
+    body { font-family: var(--font-ui); }
+
+    /* Spinner inicial — aparece enquanto o React monta */
+    #root-loader {
+      position: fixed; inset: 0;
+      display: flex; align-items: center; justify-content: center;
+      background: #0d0f14;
+    }
+    #root-loader .sp {
+      width: 32px; height: 32px; border-radius: 50%;
+      border: 3px solid rgba(99,220,170,.2);
+      border-top-color: #63dcaa;
+      animation: spin-init .7s linear infinite;
+    }
+    @keyframes spin-init { to { transform: rotate(360deg); } }
+    /* Some quando React monta */
+    #root:not(:empty) ~ #root-loader,
+    #root:not(:empty) + #root-loader { display: none; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <div id="root-loader"><div class="sp"></div></div>
+  <script type="module" src="/src/main.jsx"></script>
+</body>
+</html>

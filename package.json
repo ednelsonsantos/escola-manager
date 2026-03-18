@@ -1,0 +1,88 @@
+{
+  "name": "escola-manager",
+  "version": "5.5.1",
+  "description": "Sistema de gestão para escolas de idiomas",
+  "main": "electron/main.js",
+  "scripts": {
+    "dev": "node dev-runner.js",
+    "build": "vite build && electron-builder",
+    "preview": "vite preview",
+    "postinstall": "electron-builder install-app-deps",
+    "dev:5173": "concurrently \"vite --port 5173\" \"wait-on http://localhost:5173 && electron .\"",
+    "dev:5174": "concurrently \"vite --port 5174\" \"wait-on http://localhost:5174 && VITE_DEV_URL=http://localhost:5174 electron .\"",
+    "release": "vite build && electron-builder --publish always",
+    "release:draft": "vite build && electron-builder --publish never"
+  },
+  "dependencies": {
+    "better-sqlite3": "^9.6.0",
+    "chart.js": "^4.4.0",
+    "react": "^18.2.0",
+    "react-chartjs-2": "^5.2.0",
+    "react-dom": "^18.2.0",
+    "react-router-dom": "^6.20.0",
+    "lucide-react": "^0.294.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.2.0",
+    "concurrently": "^8.2.2",
+    "electron": "^29.4.6",
+    "electron-builder": "^24.13.3",
+    "vite": "^5.2.0",
+    "wait-on": "^7.2.0"
+  },
+  "build": {
+    "appId": "com.escolamanager.app",
+    "productName": "Escola Manager",
+    "files": [
+      "dist/**/*",
+      "electron/**/*"
+    ],
+    "asar": true,
+    "asarUnpack": [
+      "node_modules/better-sqlite3/**/*"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "ednelsonsantos",
+      "repo": "escola-manager"
+    }
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "license": "GPL-3.0-or-later",
+  "author": {
+    "name": "Ednelson Santos",
+    "url": "https://github.com/ednelsonsantos"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ednelsonsantos/escola-manager"
+  },
+  "keywords": [
+    "escola",
+    "idiomas",
+    "gestao",
+    "electron",
+    "sqlite",
+    "react"
+  ],
+  "homepage": "https://github.com/ednelsonsantos/escola-manager#readme",
+  "bugs": "https://github.com/ednelsonsantos/escola-manager/issues",
+  "copyright": "Copyright (C) 2024 Ednelson Santos"
+}
