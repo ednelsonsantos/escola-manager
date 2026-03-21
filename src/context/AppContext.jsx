@@ -36,26 +36,26 @@ const SEED_TURMAS = [
   { id: 8, codigo: 'ITA-B1', idioma: 'Italiano', nivel: 'Básico',         professorId: 5, horario: 'Sáb 11h',    vagas: 10, ativa: true },
 ]
 
+// ALTERADO: diaVencimento agora é por aluno (campo diaVencimento em cada aluno)
 const SEED_ALUNOS = [
-  { id:1,  nome:'Ana Carolina Silva',    email:'ana.silva@email.com',    telefone:'(11) 98765-4321', turmaId:3, mensalidade:320, status:'Ativo',   dataMatricula:'2024-02-10', dataNasc:'1998-05-12', obs:'' },
-  { id:2,  nome:'Bruno Ferreira Costa',  email:'bruno.costa@email.com',  telefone:'(11) 91234-5678', turmaId:5, mensalidade:280, status:'Ativo',   dataMatricula:'2024-01-15', dataNasc:'2000-11-30', obs:'Responsável financeiro diferente' },
-  { id:3,  nome:'Carla Mendes Oliveira', email:'carla.oliveira@email.com',telefone:'(11) 99876-5432', turmaId:1, mensalidade:250, status:'Ativo',   dataMatricula:'2024-03-01', dataNasc:'2005-07-22', obs:'' },
-  { id:4,  nome:'Diego Santos Lima',     email:'diego.lima@email.com',   telefone:'(11) 97654-3210', turmaId:6, mensalidade:300, status:'Inativo', dataMatricula:'2023-11-20', dataNasc:'1995-02-14', obs:'Trancou matrícula' },
-  { id:5,  nome:'Eduarda Pinheiro',      email:'eduarda.p@email.com',    telefone:'(11) 96543-2109', turmaId:2, mensalidade:280, status:'Ativo',   dataMatricula:'2024-02-28', dataNasc:'2003-09-08', obs:'' },
-  { id:6,  nome:'Felipe Rodrigues',      email:'felipe.r@email.com',     telefone:'(11) 95432-1098', turmaId:7, mensalidade:320, status:'Ativo',   dataMatricula:'2024-01-08', dataNasc:'1999-04-17', obs:'' },
-  { id:7,  nome:'Gabriela Torres',       email:'gabi.torres@email.com',  telefone:'(11) 94321-0987', turmaId:5, mensalidade:280, status:'Ativo',   dataMatricula:'2023-10-15', dataNasc:'2001-12-03', obs:'' },
-  { id:8,  nome:'Henrique Almeida',      email:'henrique.a@email.com',   telefone:'(11) 93210-9876', turmaId:3, mensalidade:320, status:'Ativo',   dataMatricula:'2024-03-10', dataNasc:'1997-06-25', obs:'' },
-  { id:9,  nome:'Isabela Cunha',         email:'isa.cunha@email.com',    telefone:'(11) 92109-8765', turmaId:8, mensalidade:300, status:'Ativo',   dataMatricula:'2024-02-20', dataNasc:'2004-01-19', obs:'' },
-  { id:10, nome:'João Pedro Vieira',     email:'joao.vieira@email.com',  telefone:'(11) 91098-7654', turmaId:1, mensalidade:250, status:'Ativo',   dataMatricula:'2024-01-30', dataNasc:'2006-08-11', obs:'Menor de idade' },
-  { id:11, nome:'Larissa Moura',         email:'larissa.m@email.com',    telefone:'(11) 90987-6543', turmaId:4, mensalidade:250, status:'Inativo', dataMatricula:'2023-09-05', dataNasc:'2002-03-28', obs:'' },
-  { id:12, nome:'Matheus Carvalho',      email:'matheus.c@email.com',    telefone:'(11) 89876-5432', turmaId:2, mensalidade:280, status:'Ativo',   dataMatricula:'2024-03-05', dataNasc:'1996-10-07', obs:'' },
-  { id:13, nome:'Natália Fernandes',     email:'nati.f@email.com',       telefone:'(11) 88765-4321', turmaId:4, mensalidade:250, status:'Ativo',   dataMatricula:'2024-03-15', dataNasc:'2007-05-14', obs:'Menor de idade' },
-  { id:14, nome:'Otávio Mendonça',       email:'otavio.m@email.com',     telefone:'(11) 87654-3210', turmaId:6, mensalidade:300, status:'Ativo',   dataMatricula:'2024-01-22', dataNasc:'1993-07-31', obs:'' },
-  { id:15, nome:'Paula Rocha',           email:'paula.r@email.com',      telefone:'(11) 86543-2109', turmaId:3, mensalidade:320, status:'Ativo',   dataMatricula:'2024-02-14', dataNasc:'1990-11-05', obs:'' },
+  { id:1,  nome:'Ana Carolina Silva',    email:'ana.silva@email.com',    telefone:'(11) 98765-4321', turmaId:3, mensalidade:320, status:'Ativo',   dataMatricula:'2024-02-10', dataNasc:'1998-05-12', obs:'', diaVencimento:10 },
+  { id:2,  nome:'Bruno Ferreira Costa',  email:'bruno.costa@email.com',  telefone:'(11) 91234-5678', turmaId:5, mensalidade:280, status:'Ativo',   dataMatricula:'2024-01-15', dataNasc:'2000-11-30', obs:'Responsável financeiro diferente', diaVencimento:15 },
+  { id:3,  nome:'Carla Mendes Oliveira', email:'carla.oliveira@email.com',telefone:'(11) 99876-5432', turmaId:1, mensalidade:250, status:'Ativo',   dataMatricula:'2024-03-01', dataNasc:'2005-07-22', obs:'', diaVencimento:10 },
+  { id:4,  nome:'Diego Santos Lima',     email:'diego.lima@email.com',   telefone:'(11) 97654-3210', turmaId:6, mensalidade:300, status:'Inativo', dataMatricula:'2023-11-20', dataNasc:'1995-02-14', obs:'Trancou matrícula', diaVencimento:10 },
+  { id:5,  nome:'Eduarda Pinheiro',      email:'eduarda.p@email.com',    telefone:'(11) 96543-2109', turmaId:2, mensalidade:280, status:'Ativo',   dataMatricula:'2024-02-28', dataNasc:'2003-09-08', obs:'', diaVencimento:5 },
+  { id:6,  nome:'Felipe Rodrigues',      email:'felipe.r@email.com',     telefone:'(11) 95432-1098', turmaId:7, mensalidade:320, status:'Ativo',   dataMatricula:'2024-01-08', dataNasc:'1999-04-17', obs:'', diaVencimento:10 },
+  { id:7,  nome:'Gabriela Torres',       email:'gabi.torres@email.com',  telefone:'(11) 94321-0987', turmaId:5, mensalidade:280, status:'Ativo',   dataMatricula:'2023-10-15', dataNasc:'2001-12-03', obs:'', diaVencimento:20 },
+  { id:8,  nome:'Henrique Almeida',      email:'henrique.a@email.com',   telefone:'(11) 93210-9876', turmaId:3, mensalidade:320, status:'Ativo',   dataMatricula:'2024-03-10', dataNasc:'1997-06-25', obs:'', diaVencimento:10 },
+  { id:9,  nome:'Isabela Cunha',         email:'isa.cunha@email.com',    telefone:'(11) 92109-8765', turmaId:8, mensalidade:300, status:'Ativo',   dataMatricula:'2024-02-20', dataNasc:'2004-01-19', obs:'', diaVencimento:10 },
+  { id:10, nome:'João Pedro Vieira',     email:'joao.vieira@email.com',  telefone:'(11) 91098-7654', turmaId:1, mensalidade:250, status:'Ativo',   dataMatricula:'2024-01-30', dataNasc:'2006-08-11', obs:'Menor de idade', diaVencimento:10 },
+  { id:11, nome:'Larissa Moura',         email:'larissa.m@email.com',    telefone:'(11) 90987-6543', turmaId:4, mensalidade:250, status:'Inativo', dataMatricula:'2023-09-05', dataNasc:'2002-03-28', obs:'', diaVencimento:10 },
+  { id:12, nome:'Matheus Carvalho',      email:'matheus.c@email.com',    telefone:'(11) 89876-5432', turmaId:2, mensalidade:280, status:'Ativo',   dataMatricula:'2024-03-05', dataNasc:'1996-10-07', obs:'', diaVencimento:10 },
+  { id:13, nome:'Natália Fernandes',     email:'nati.f@email.com',       telefone:'(11) 88765-4321', turmaId:4, mensalidade:250, status:'Ativo',   dataMatricula:'2024-03-15', dataNasc:'2007-05-14', obs:'Menor de idade', diaVencimento:10 },
+  { id:14, nome:'Otávio Mendonça',       email:'otavio.m@email.com',     telefone:'(11) 87654-3210', turmaId:6, mensalidade:300, status:'Ativo',   dataMatricula:'2024-01-22', dataNasc:'1993-07-31', obs:'', diaVencimento:10 },
+  { id:15, nome:'Paula Rocha',           email:'paula.r@email.com',      telefone:'(11) 86543-2109', turmaId:3, mensalidade:320, status:'Ativo',   dataMatricula:'2024-02-14', dataNasc:'1990-11-05', obs:'', diaVencimento:10 },
 ]
 
 // Gera pagamentos dos últimos 6 meses para cada aluno ativo
-// Gera mês no formato YYYY-MM para N meses atrás do mês atual
 function mesRelativo(mesesAtras) {
   const d = new Date()
   d.setDate(1)
@@ -63,17 +63,17 @@ function mesRelativo(mesesAtras) {
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`
 }
 
+// ALTERADO: usa diaVencimento do próprio aluno
 function gerarPagamentos() {
   const pgs = []
   let id = 1
-  // Gera 7 meses: 6 meses atrás até o mês atual
   const meses = Array.from({length:7}, (_,i) => mesRelativo(6 - i))
   SEED_ALUNOS.filter(a => a.status === 'Ativo').forEach(aluno => {
+    const dia = String(aluno.diaVencimento || 10).padStart(2, '0')
     meses.forEach((mes, mi) => {
-      const venc = `${mes}-10`
+      const venc = `${mes}-${dia}`
       let status = 'Pago'
       let dataPgto = `${mes}-${String(Math.floor(Math.random()*9)+1).padStart(2,'0')}`
-      // mês atual: alguns atrasados/pendentes
       if (mi === meses.length - 1) {
         if ([2,7,11].includes(aluno.id))    { status = 'Atrasado'; dataPgto = null }
         else if ([9,14].includes(aluno.id)) { status = 'Pendente'; dataPgto = null }
@@ -119,9 +119,10 @@ const SEED_EVENTOS = [
   { id:6, titulo:'Início de novas turmas',    data:diasAPartirDeHoje(20), hora:'08:00', tipo:'turma',     desc:'Novas turmas do semestre',          turmaId:null },
 ]
 
+// ALTERADO: removido diaVencimento global; adicionado descontoAntecipacao e jurosAtraso
 const DEFAULT_SETTINGS = {
   escola: { nome: 'Escola de Idiomas', cnpj: '', telefone: '', email: '', endereco: '', cidade: '' },
-  financeiro: { diaVencimento: 10, jurosAtraso: 2, multaAtraso: 10, moeda: 'BRL' },
+  financeiro: { multaAtraso: 10, jurosAtraso: 2, descontoAntecipacao: 5, moeda: 'BRL', pixChave: '', pixTipo: 'email', pixQrCode: '' },
   sistema: { idioma: 'pt-BR', notificacoes: true, backupAuto: false },
   aparencia: { tema: 'dark', accentColor: '#63dcaa', fontSize: 'normal' },
 }
@@ -134,16 +135,9 @@ function loadLS(key, fallback) {
 }
 function saveLS(key, val) { try { localStorage.setItem(key, JSON.stringify(val)) } catch {} }
 
-// ── Inicialização única dos dados ─────────────────────────────────────────────
-// A flag 'em_inicializado' garante que os SEED só são carregados UMA vez
-// (na abertura real do app pela primeira vez).
-// Após limparTudo(), a flag permanece true e os arrays vazios são preservados
-// mesmo que o localStorage seja de uma origem diferente (dev vs prod).
 function inicializarDados() {
   const jaIniciou = localStorage.getItem('em_inicializado')
-  if (jaIniciou) return // já foi inicializado antes — usa o que está no LS
-
-  // Primeira abertura de verdade: salva os seeds no localStorage
+  if (jaIniciou) return
   if (localStorage.getItem('em_alunos')      === null) saveLS('em_alunos',    SEED_ALUNOS)
   if (localStorage.getItem('em_turmas')      === null) saveLS('em_turmas',    SEED_TURMAS)
   if (localStorage.getItem('em_profs')       === null) saveLS('em_profs',     SEED_PROFESSORES)
@@ -153,11 +147,9 @@ function inicializarDados() {
   localStorage.setItem('em_inicializado', '1')
 }
 
-// Executa antes do primeiro render
 inicializarDados()
 
 export function AppProvider({ children, user = null, onLogout = null }) {
-  // Agora loadLS nunca usa fallback de SEED — os dados já foram escritos acima
   const [alunos,      setAlunosRaw]    = useState(() => loadLS('em_alunos',    []))
   const [turmas,      setTurmasRaw]    = useState(() => loadLS('em_turmas',    []))
   const [professores, setProfRaw]      = useState(() => loadLS('em_profs',     []))
@@ -166,7 +158,6 @@ export function AppProvider({ children, user = null, onLogout = null }) {
   const [settings,    setSettingsRaw]  = useState(() => loadLS('em_settings',  DEFAULT_SETTINGS))
   const [toast,       setToast]        = useState(null)
 
-  // persist
   const setAlunos      = v => { setAlunosRaw(v);      saveLS('em_alunos', v) }
   const setTurmas      = v => { setTurmasRaw(v);      saveLS('em_turmas', v) }
   const setProfessores = v => { setProfRaw(v);        saveLS('em_profs',  v) }
@@ -174,8 +165,6 @@ export function AppProvider({ children, user = null, onLogout = null }) {
   const setEventos     = v => { setEventosRaw(v);     saveLS('em_eventos',v) }
   const setSettings    = v => { setSettingsRaw(v);    saveLS('em_settings',v) }
 
-  // ── Audit log bridge ──
-  // Envia logs de ações sobre dados locais (localStorage) para o SQLite.
   function registrarLog(modulo, acao, entidadeNome = '', detalhe = '', nivel = 'info') {
     try {
       const u = JSON.parse(sessionStorage.getItem('em_user_v5') || '{}')
@@ -193,24 +182,18 @@ export function AppProvider({ children, user = null, onLogout = null }) {
   }, [])
 
   // ── Backup automático ─────────────────────────────────────────────────────────
-  // Escuta o sinal do main process antes de fechar a janela.
-  // Se backupAuto estiver ligado, salva o JSON completo antes de confirmar o close.
   useEffect(() => {
     const api = window.electronAPI
-    if (!api?.onBeforeClose) return // fora do Electron (dev web)
+    if (!api?.onBeforeClose) return
 
     const handleBeforeClose = async () => {
       const backupAtivo = (() => {
         try { return JSON.parse(localStorage.getItem('em_settings') || '{}')?.sistema?.backupAuto } catch { return false }
       })()
 
-      if (!backupAtivo) {
-        api.backupSkip()
-        return
-      }
+      if (!backupAtivo) { api.backupSkip(); return }
 
       try {
-        // Lê os dados mais recentes direto do localStorage (estado atual)
         const dados = {
           alunos:      JSON.parse(localStorage.getItem('em_alunos')   || '[]'),
           turmas:      JSON.parse(localStorage.getItem('em_turmas')   || '[]'),
@@ -219,21 +202,19 @@ export function AppProvider({ children, user = null, onLogout = null }) {
           eventos:     JSON.parse(localStorage.getItem('em_eventos')  || '[]'),
           settings:    JSON.parse(localStorage.getItem('em_settings') || '{}'),
           exportadoEm: new Date().toISOString(),
-          versao:      '5.1.1',
+          versao:      '5.5.2',
         }
         const json = JSON.stringify(dados, null, 2)
         await api.backupSalvar(json)
       } catch (e) {
         console.error('[BackupAuto] Erro ao salvar:', e)
       } finally {
-        api.backupDone() // sempre confirma o close, mesmo se houve erro
+        api.backupDone()
       }
     }
 
     api.onBeforeClose(handleBeforeClose)
-    // Não há cleanup pois o listener é registrado uma única vez no main com ipcMain.once
   }, [])
-  // ─────────────────────────────────────────────────────────────────────────────
 
   // ── ALUNOS CRUD ──
   const addAluno = (data) => {
@@ -280,12 +261,64 @@ export function AppProvider({ children, user = null, onLogout = null }) {
   }
 
   // ── PAGAMENTOS ──
+
+  /**
+   * registrarPagamento — confirma recebimento.
+   * NOVO: se dataPgto < vencimento, aplica desconto de antecipação automaticamente.
+   */
   const registrarPagamento = (id, dataPgto = null) => {
+    const pgto = pagamentos.find(p => p.id === id)
+    if (!pgto) return
+
+    const dataEfetiva = dataPgto || today()
+    const desconto    = settings?.financeiro?.descontoAntecipacao ?? 5 // % padrão
+
+    let valorFinal       = pgto.valor
+    let valorDesconto    = 0
+    let valorOriginalPgto = pgto.valorOriginal ?? pgto.valor // usa original se já tinha encargo
+
+    // Caso 1 — antecipado: pagou antes do vencimento → aplica desconto
+    if (dataEfetiva < pgto.vencimento && desconto > 0) {
+      valorDesconto = Math.round(valorOriginalPgto * (desconto / 100) * 100) / 100
+      valorFinal    = Math.round((valorOriginalPgto - valorDesconto) * 100) / 100
+    }
+
+    // Caso 2 — atrasado: pagou depois do vencimento → recalcula encargos com data real
+    let encargosFinais = { valorMulta: 0, valorJuros: 0 }
+    if (dataEfetiva > pgto.vencimento) {
+      const enc = calcularEncargos(valorOriginalPgto, pgto.vencimento, dataEfetiva)
+      encargosFinais = { valorMulta: enc.valorMulta, valorJuros: enc.valorJuros }
+      valorFinal     = enc.valorTotal
+    }
+
     setPagamentos(pagamentos.map(p =>
-      p.id === id ? { ...p, status: 'Pago', dataPgto: dataPgto || today() } : p
+      p.id === id
+        ? {
+            ...p,
+            status:        'Pago',
+            dataPgto:      dataEfetiva,
+            valor:         valorFinal,
+            valorOriginal: p.valorOriginal ?? p.valor,
+            valorDesconto: valorDesconto > 0 ? valorDesconto : undefined,
+            // Grava encargos finais calculados com a data real do pagamento
+            valorMulta:    encargosFinais.valorMulta  > 0 ? encargosFinais.valorMulta  : undefined,
+            valorJuros:    encargosFinais.valorJuros  > 0 ? encargosFinais.valorJuros  : undefined,
+            diasAtraso:    dataEfetiva > pgto.vencimento
+              ? Math.floor((new Date(dataEfetiva) - new Date(pgto.vencimento + 'T00:00:00')) / 86400000)
+              : undefined,
+          }
+        : p
     ))
-    showToast('Pagamento registrado!'); registrarLog('financeiro','registrar_pagamento','','Pagamento confirmado: ID '+id)
+    showToast(
+      valorDesconto > 0
+        ? `Pagamento registrado com desconto de ${formatBRL(valorDesconto)}! 🎉`
+        : dataEfetiva > pgto.vencimento && (encargosFinais.valorMulta + encargosFinais.valorJuros) > 0
+          ? `Pagamento registrado com encargos de ${formatBRL(encargosFinais.valorMulta + encargosFinais.valorJuros)}.`
+          : 'Pagamento registrado!'
+    )
+    registrarLog('financeiro','registrar_pagamento','','Pagamento confirmado: ID '+id)
   }
+
   const updatePagamento = (id, dados) => {
     setPagamentos(pagamentos.map(p => p.id === id ? { ...p, ...dados } : p))
     showToast('Pagamento atualizado!'); registrarLog('financeiro','editar_pagamento','','Pagamento editado: ID '+id)
@@ -298,16 +331,33 @@ export function AppProvider({ children, user = null, onLogout = null }) {
     const list = [...pagamentos, { ...data, id: newId(pagamentos) }]
     setPagamentos(list); showToast('Pagamento lançado!')
   }
+
+  /**
+   * gerarMensalidades — ALTERADO: usa diaVencimento do próprio aluno.
+   * Cada aluno tem seu dia de vencimento individual (campo diaVencimento).
+   * Fallback para dia 10 se o campo não estiver definido.
+   */
   const gerarMensalidades = (mes) => {
     const ativos = alunos.filter(a => a.status === 'Ativo')
-    const dia    = String(settings?.financeiro?.diaVencimento || 10).padStart(2, '0')
-    const venc   = `${mes}-${dia}`
     const novos  = ativos
       .filter(a => !pagamentos.find(p => p.alunoId === a.id && p.mes === mes))
-      .map(a => ({ id: newId([...pagamentos, ...ativos]), alunoId: a.id, valor: a.mensalidade, vencimento: venc, status: 'Pendente', dataPgto: null, mes }))
+      .map(a => {
+        const dia  = String(a.diaVencimento || 10).padStart(2, '0')
+        const venc = `${mes}-${dia}`
+        return {
+          id: newId([...pagamentos, ...ativos]),
+          alunoId: a.id,
+          valor: a.mensalidade,
+          vencimento: venc,
+          status: 'Pendente',
+          dataPgto: null,
+          mes,
+        }
+      })
     if (novos.length === 0) { showToast('Mensalidades já geradas para este mês.', 'warning'); return }
     setPagamentos([...pagamentos, ...novos])
-    showToast(`${novos.length} mensalidades geradas!`); registrarLog('financeiro','gerar_mensalidades','',`${novos.length} mensalidades geradas para ${mes}`)
+    showToast(`${novos.length} mensalidades geradas!`)
+    registrarLog('financeiro','gerar_mensalidades','',`${novos.length} mensalidades geradas para ${mes}`)
   }
 
   // ── EVENTOS CRUD ──
@@ -315,38 +365,60 @@ export function AppProvider({ children, user = null, onLogout = null }) {
   const updateEvento = (id,d) => { setEventos(eventos.map(e=>e.id===id?{...e,...d}:e)); showToast('Evento atualizado!') }
   const deleteEvento = id => { setEventos(eventos.filter(e=>e.id!==id)); showToast('Evento removido.','info') }
 
-  // ── PAGAMENTOS extras ──
-  // ── Calcula valor com juros e multa ──────────────────────────────────────────
-  // Aplica multa única no 1º dia de atraso + juros ao mês proporcional aos dias.
-  function calcularEncargos(valorOriginal, vencimento) {
-    const juros  = settings?.financeiro?.jurosAtraso  ?? 2   // % ao mês
-    const multa  = settings?.financeiro?.multaAtraso  ?? 10  // % única
-    const hoje   = new Date()
-    const venc   = new Date(vencimento + 'T00:00:00')
-    const dias   = Math.max(0, Math.floor((hoje - venc) / (1000 * 60 * 60 * 24)))
+  // ── ENCARGOS ─────────────────────────────────────────────────────────────────
+  /**
+   * calcularEncargos — multa fixa no 1º dia + juros diários a partir do 2º dia.
+   *
+   * Regras:
+   *   - Dia 1 de atraso : multa fixa (multaAtraso %)
+   *   - Dia 2 em diante : juros diários = valorOriginal × (jurosAtraso% / 30) × (dias - 1)
+   *   - Os dois encargos são independentes e se somam
+   *
+   * Aceita dataReferencia opcional (string YYYY-MM-DD) para calcular com uma
+   * data específica — usado ao confirmar pagamento com data retroativa/futura.
+   *
+   * Retorna: { valorTotal, valorMulta, valorJuros, dias }
+   */
+  function calcularEncargos(valorOriginal, vencimento, dataReferencia = null) {
+    const multa  = settings?.financeiro?.multaAtraso    ?? 10  // % fixa, 1x
+    const juros  = settings?.financeiro?.jurosAtraso    ?? 2   // % ao mês
+
+    const ref  = dataReferencia
+      ? new Date(dataReferencia + 'T00:00:00')
+      : new Date()
+    const venc = new Date(vencimento + 'T00:00:00')
+    const dias = Math.max(0, Math.floor((ref - venc) / (1000 * 60 * 60 * 24)))
+
     if (dias <= 0) return { valorTotal: valorOriginal, valorMulta: 0, valorJuros: 0, dias: 0 }
-    const valorMulta  = valorOriginal * (multa / 100)
-    const valorJuros  = valorOriginal * (juros / 100) * (dias / 30)
-    const valorTotal  = valorOriginal + valorMulta + valorJuros
-    return {
-      valorTotal:  Math.round(valorTotal  * 100) / 100,
-      valorMulta:  Math.round(valorMulta  * 100) / 100,
-      valorJuros:  Math.round(valorJuros  * 100) / 100,
-      dias,
-    }
+
+    // Multa: aplicada a partir do dia 1 (sempre que há atraso)
+    const valorMulta = Math.round(valorOriginal * (multa / 100) * 100) / 100
+
+    // Juros diários: só a partir do dia 2 (dias - 1 para excluir o dia da multa)
+    const diasJuros  = Math.max(0, dias - 1)
+    const valorJuros = Math.round(valorOriginal * (juros / 100) * (diasJuros / 30) * 100) / 100
+
+    const valorTotal = Math.round((valorOriginal + valorMulta + valorJuros) * 100) / 100
+
+    return { valorTotal, valorMulta, valorJuros, dias }
   }
 
+  /**
+   * marcarAtrasados — aplica multa fixa nos pendentes vencidos do mês.
+   * Preserva valorOriginal para não acumular multa em cliques repetidos.
+   */
   const marcarAtrasados = (mes) => {
     const hoje = today()
     let count = 0
     const updated = pagamentos.map(p => {
       if (p.mes === mes && p.status === 'Pendente' && p.vencimento < hoje) {
         count++
-        const enc = calcularEncargos(p.valor, p.vencimento)
+        const valorBase = p.valorOriginal ?? p.valor // nunca recalcula sobre valor já corrigido
+        const enc = calcularEncargos(valorBase, p.vencimento)
         return {
           ...p,
-          status:       'Atrasado',
-          valorOriginal: p.valorOriginal ?? p.valor, // preserva valor original
+          status:        'Atrasado',
+          valorOriginal: valorBase,
           valor:         enc.valorTotal,
           valorMulta:    enc.valorMulta,
           valorJuros:    enc.valorJuros,
@@ -356,7 +428,9 @@ export function AppProvider({ children, user = null, onLogout = null }) {
       return p
     })
     setPagamentos(updated)
-    count > 0 ? showToast(`${count} pagamento(s) marcado(s) como atrasado.`, 'warning') : showToast('Nenhum pendente vencido.', 'info')
+    count > 0
+      ? showToast(`${count} pagamento(s) marcado(s) como atrasado.`, 'warning')
+      : showToast('Nenhum pendente vencido.', 'info')
   }
 
   // ── EXPORT ──
@@ -378,7 +452,7 @@ export function AppProvider({ children, user = null, onLogout = null }) {
 
     if (tipo === 'alunos') {
       nome = 'alunos.csv'
-      rows = [['ID','Nome','Email','Telefone','Turma','Idioma','Nível','Mensalidade (R$)','Status','Situação Fin.','Data Matrícula','Observações']]
+      rows = [['ID','Nome','Email','Telefone','Turma','Idioma','Nível','Mensalidade (R$)','Dia Venc.','Status','Situação Fin.','Data Matrícula','Observações']]
       alunos.forEach(a => {
         const t   = turmas.find(t => t.id === a.turmaId)
         const pg  = pagamentos.find(p => p.alunoId === a.id && p.mes === mesAtualDinamico())
@@ -386,7 +460,7 @@ export function AppProvider({ children, user = null, onLogout = null }) {
         rows.push([
           a.id, a.nome, a.email||'', a.telefone||'',
           t?.codigo||'', t?.idioma||'', t?.nivel||'',
-          a.mensalidade, a.status, sit,
+          a.mensalidade, a.diaVencimento||10, a.status, sit,
           a.dataMatricula||'', a.obs||''
         ])
       })
@@ -394,13 +468,16 @@ export function AppProvider({ children, user = null, onLogout = null }) {
 
     if (tipo === 'pagamentos') {
       nome = 'pagamentos.csv'
-      rows = [['ID','Aluno','Turma','Mês','Valor (R$)','Vencimento','Data Pagamento','Status']]
+      rows = [['ID','Aluno','Turma','Mês','Valor (R$)','Original (R$)','Multa (R$)','Desconto (R$)','Vencimento','Data Pagamento','Status']]
       pagamentos.forEach(p => {
         const a = alunos.find(al => al.id === p.alunoId)
         const t = turmas.find(t => t.id === a?.turmaId)
         rows.push([
           p.id, a?.nome||'', t?.codigo||'',
           p.mes, p.valor,
+          p.valorOriginal||p.valor,
+          p.valorMulta||0,
+          p.valorDesconto||0,
           p.vencimento||'', p.dataPgto||'', p.status
         ])
       })
@@ -438,7 +515,6 @@ export function AppProvider({ children, user = null, onLogout = null }) {
     }
 
     if (tipo === 'financeiro') {
-      // Relatório financeiro mensal consolidado
       nome = 'relatorio-financeiro.csv'
       const meses = Array.from({length:7}, (_,i) => mesRelativo(6 - i))
       rows = [['Mês','Receita (R$)','Qtd Pagos','Qtd Atrasados','Qtd Pendentes','Total Cobranças','Taxa Recebimento (%)']]
@@ -470,12 +546,14 @@ export function AppProvider({ children, user = null, onLogout = null }) {
 
   // ── SETTINGS ──
   const updateSettings = (section, data) => {
-    const next = { ...settings, [section]: { ...settings[section], ...data } }
+    // Deep merge com DEFAULT_SETTINGS garante que campos novos (ex: idioma)
+    // existam mesmo em instâncias com localStorage de versões anteriores
+    const sectionDefault = DEFAULT_SETTINGS[section] || {}
+    const next = { ...settings, [section]: { ...sectionDefault, ...settings[section], ...data } }
     setSettings(next); showToast('Configurações salvas!')
   }
 
   const resetData = () => {
-    // Restaura dados de demonstração
     setAlunos(SEED_ALUNOS)
     setTurmas(SEED_TURMAS)
     setProfessores(SEED_PROFESSORES)
@@ -486,13 +564,11 @@ export function AppProvider({ children, user = null, onLogout = null }) {
   }
 
   const limparTudo = () => {
-    // Zera estado React
     setAlunosRaw([])
     setTurmasRaw([])
     setProfRaw([])
     setPagsRaw([])
     setEventosRaw([])
-    // Garante que o localStorage também é zerado explicitamente
     saveLS('em_alunos',  [])
     saveLS('em_turmas',  [])
     saveLS('em_profs',   [])
@@ -502,14 +578,8 @@ export function AppProvider({ children, user = null, onLogout = null }) {
     registrarLog('sistema', 'limpar_tudo', '', 'Todos os dados removidos — sistema limpo para uso real', 'aviso')
   }
 
-  /**
-   * restaurarBackup — recebe um objeto JSON de backup já parseado e aplica.
-   * Valida os campos esperados antes de restaurar.
-   * Retorna { ok, erro, stats } para o componente mostrar feedback.
-   */
   const restaurarBackup = (dados) => {
     try {
-      // Validação básica da estrutura
       if (!dados || typeof dados !== 'object') return { ok: false, erro: 'Arquivo inválido — não é um JSON de backup.' }
 
       const temAlunos   = Array.isArray(dados.alunos)
@@ -522,16 +592,13 @@ export function AppProvider({ children, user = null, onLogout = null }) {
         return { ok: false, erro: 'Arquivo não parece ser um backup do Escola Manager. Campos esperados não encontrados.' }
       }
 
-      // Aplica — usa setters com saveLS para garantir persistência
       if (temAlunos)   setAlunos(dados.alunos)
       if (temTurmas)   setTurmas(dados.turmas)
       if (temProfs)    setProfessores(dados.professores)
       if (temPags)     setPagamentos(dados.pagamentos)
       if (temEventos)  setEventos(dados.eventos)
 
-      // Restaura settings opcionalmente (não sobrescreve se não existir no backup)
       if (dados.settings && typeof dados.settings === 'object') {
-        // Preserva o tema atual — não queremos mudar a aparência durante a restauração
         const temaAtual = settings.aparencia?.tema
         const settingsRestauradas = { ...dados.settings }
         if (temaAtual) settingsRestauradas.aparencia = { ...(settingsRestauradas.aparencia || {}), tema: temaAtual }

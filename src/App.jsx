@@ -203,11 +203,14 @@ export default function App() {
 
   const mesAtual      = mesAtualDinamico()
   const notifAtiva    = settings?.sistema?.notificacoes ?? true
-  const inadimplentes = notifAtiva ? pagamentos.filter(p=>p.mes===mesAtual&&p.status==='Atrasado') : []
-  const pendentes     = notifAtiva ? pagamentos.filter(p=>p.mes===mesAtual&&p.status==='Pendente') : []
+  // Notificações financeiras apenas para quem tem acesso ao módulo financeiro
+  const podeVerFinanceiro = permissao('financeiro').podeVer
+  const podeVerAgenda     = permissao('agenda').podeVer
+  const inadimplentes = notifAtiva && podeVerFinanceiro ? pagamentos.filter(p=>p.mes===mesAtual&&p.status==='Atrasado') : []
+  const pendentes     = notifAtiva && podeVerFinanceiro ? pagamentos.filter(p=>p.mes===mesAtual&&p.status==='Pendente') : []
   const todayStr      = new Date().toISOString().split('T')[0]
-  const eventosHoje   = eventos.filter(e=>e.data===todayStr)
-  const notifCount    = notifAtiva ? (inadimplentes.length + (pendentes.length>0?1:0) + (eventosHoje.length>0?1:0)) : 0
+  const eventosHoje   = notifAtiva && podeVerAgenda ? eventos.filter(e=>e.data===todayStr) : []
+  const notifCount    = inadimplentes.length + (pendentes.length>0?1:0) + (eventosHoje.length>0?1:0)
 
   const searchResults = searchQ.length>1 ? [
     ...alunos.filter(a=>a.nome.toLowerCase().includes(searchQ.toLowerCase())).slice(0,4).map(a=>({ type:'aluno', label:a.nome, sub:a.email||'', action:()=>{nav('/alunos');setSearchOpen(false);setSearchQ('')} })),

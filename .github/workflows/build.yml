@@ -4,51 +4,54 @@ on:
   push:
     tags:
       - 'v*'
-  workflow_dispatch:
+
+permissions:
+  contents: write
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
-permissions:
-  contents: write   # necessário para criar Releases e fazer upload de assets
-
 jobs:
   build-windows:
-    name: Build Windows (.exe)
     runs-on: windows-latest
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node.js 20
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: 20
           cache: 'npm'
 
       - name: Install dependencies
         run: npm ci
 
-      - name: Build Vite + Electron
+      - name: Rebuild native modules
+        run: npm run postinstall
+
+      - name: Build
         run: npm run build
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Upload installer como artefato
-        uses: actions/upload-artifact@v4
-        with:
-          name: escola-manager-windows
-          path: release/*.exe
-          retention-days: 30
-
-      - name: Publicar Release no GitHub
-        if: startsWith(github.ref, 'refs/tags/')
+      - name: Upload Release
         uses: softprops/action-gh-release@v2
         with:
-          files: release/*.exe
-          draft: false
-          prerelease: false
-          generate_release_notes: true
+          files: |
+            dist/*.exe
+            dist/*.msi
+          generate_release_notes: false
+          body: |
+            ## Escola Manager ${{ github.ref_name }}
+
+            ### 📥 Instalação
+            Baixe o arquivo `.exe` abaixo e execute — o instalador guia todo o processo.
+
+            **Requisitos:** Windows 10/11 64-bit
+
+            ### 📋 Changelog
+            Veja [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md) para detalhes completos.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,85 +1,72 @@
 # ── Dependências ──────────────────────────────────────────────────────────────
 node_modules/
-.pnp
-.pnp.js
+.npm/
 
-# ── Build outputs ─────────────────────────────────────────────────────────────
+# ── Build / Dist ──────────────────────────────────────────────────────────────
 dist/
 dist-electron/
-release/
 out/
+release/
+build/
 
 # ── Electron Builder ──────────────────────────────────────────────────────────
-# Instaladores e pacotes gerados pelo electron-builder
+# Instaladores e artefatos de build — gerados pelo CI/CD ou npm run build
 *.exe
-*.msi
 *.dmg
 *.AppImage
-*.snap
 *.deb
 *.rpm
-*.zip
-*.tar.gz
+*.snap
+*.msi
+*.nsis
+win-unpacked/
+linux-unpacked/
+mac/
 
-# ── Banco de dados local (gerado em runtime) ──────────────────────────────────
-# O arquivo escola.db fica em %APPDATA%/Escola Manager/ no Windows
-# A pasta db/ local é apenas para desenvolvimento
-db/*.db
-db/*.db-wal
-db/*.db-shm
+# ── Banco de Dados ────────────────────────────────────────────────────────────
+# SQLite gerado em runtime — não versionar dados de produção
 *.db
-*.db-wal
 *.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
 
-# ── Variáveis de ambiente / secrets ───────────────────────────────────────────
+# ── Logs ──────────────────────────────────────────────────────────────────────
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# ── Cache e ambiente ──────────────────────────────────────────────────────────
+.vite/
+.cache/
+.parcel-cache/
 .env
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
 
-# ── Logs ──────────────────────────────────────────────────────────────────────
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-*.log
-
-# ── Cache e temporários ───────────────────────────────────────────────────────
-.cache/
-.vite/
-.temp/
-tmp/
-temp/
-
-# ── IDEs e editores ───────────────────────────────────────────────────────────
+# ── Editores / IDEs ───────────────────────────────────────────────────────────
 .vscode/
-!.vscode/extensions.json
-!.vscode/settings.json
 .idea/
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
 *.sw?
-
-# ── Sistema operacional ───────────────────────────────────────────────────────
 .DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
 Thumbs.db
 desktop.ini
 
-# ── Cobertura de testes ───────────────────────────────────────────────────────
-coverage/
-*.lcov
+# ── Backups gerados pelo sistema ──────────────────────────────────────────────
+# (ficam em %APPDATA% em produção — não commitar)
+backups/
 
-# ── TypeScript ────────────────────────────────────────────────────────────────
-*.tsbuildinfo
-
-# ── Electron — arquivos gerados no desenvolvimento ───────────────────────────
-# Necessário para reconstrução dos módulos nativos (better-sqlite3)
-# Esses ficam dentro de node_modules (já ignorado acima) e não no repo
+# ── Arquivos temporários ──────────────────────────────────────────────────────
+*.tmp
+*.temp
+*.bak
+*.orig

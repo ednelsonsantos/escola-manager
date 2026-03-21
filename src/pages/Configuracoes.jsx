@@ -41,7 +41,23 @@ export default function Configuracoes() {
   const [backupLido,    setBackupLido]   = useState(null)   // { dados, arquivo, stats }
   const [restoreStatus, setRestoreStatus]= useState(null)   // { ok, stats, erro } após restauração
   const [formE,   setFormE]   = useState({ ...settings.escola })
-  const [formF,   setFormF]   = useState({ ...settings.financeiro })
+  const [formF,   setFormF]   = useState({
+    multaAtraso: 10, jurosAtraso: 2, descontoAntecipacao: 5,
+    pixChave: '', pixTipo: 'email', pixQrCode: '',
+    ...settings.financeiro,
+  })
+
+  // Preview de encargos — calculado fora do JSX
+  const prevBase   = 250
+  const prevDias   = 10
+  const prevMulta  = Number(formF.multaAtraso)  || 0
+  const prevJuros  = Number(formF.jurosAtraso)  || 0
+  const prevDesc   = Number(formF.descontoAntecipacao) || 0
+  const prevVMulta = Math.round(prevBase * prevMulta / 100 * 100) / 100
+  const prevVJuros = Math.round(prevBase * (prevJuros / 100) * ((prevDias - 1) / 30) * 100) / 100
+  const prevTotal  = Math.round((prevBase + prevVMulta + prevVJuros) * 100) / 100
+  const prevDescV  = Math.round(prevBase * prevDesc / 100 * 100) / 100
+  const fmtR = v => `R$ ${Number(v).toFixed(2).replace('.', ',')}`
   const [formId,  setFormId]  = useState({ nome_escola: identidade?.nome_escola||'', slogan: identidade?.slogan||'', logo_base64: identidade?.logo_base64||'', logo_nome: identidade?.logo_nome||'' })
   const [salvandoId, setSalvandoId] = useState(false)
 
@@ -219,26 +235,240 @@ export default function Configuracoes() {
           {sec==='financeiro' && (
             <div>
               <div style={{fontFamily:"'Syne',sans-serif",fontSize:17,fontWeight:700,color:'var(--text-1)',marginBottom:4}}>Configurações Financeiras</div>
-              <div style={{fontSize:12,color:'var(--text-3)',marginBottom:22}}>Regras de cobrança e vencimentos</div>
-              <div className="settings-card">
-                <div className="settings-card-title"><DollarSign size={15}/>Cobranças</div>
+              <div style={{fontSize:12,color:'var(--text-3)',marginBottom:22}}>Regras de cobrança aplicadas automaticamente</div>
+
+              {/* ── Encargos por Atraso ── */}
+              <div className="settings-card" style={{marginBottom:14}}>
+                <div className="settings-card-title"><DollarSign size={15}/>Encargos por Atraso</div>
                 <div className="form-grid">
                   <div className="field">
-                    <label>Dia de Vencimento</label>
-                    <input className="input" type="number" min={1} max={28} value={formF.diaVencimento||10} onChange={e=>setFormF(f=>({...f,diaVencimento:Number(e.target.value)}))}/>
-                    <span className="input-hint">Dia do mês para vencimento das mensalidades (1-28) — usado ao gerar mensalidades</span>
-                  </div>
-                  <div className="field">
-                    <label>Juros por Atraso (%)</label>
-                    <input className="input" type="number" step="0.1" value={formF.jurosAtraso||2} onChange={e=>setFormF(f=>({...f,jurosAtraso:Number(e.target.value)}))}/>
-                    <span className="input-hint">⚠️ Salvo para referência — cálculo automático de juros previsto para v6</span>
-                  </div>
-                  <div className="field">
                     <label>Multa por Atraso (%)</label>
-                    <input className="input" type="number" step="0.1" value={formF.multaAtraso||10} onChange={e=>setFormF(f=>({...f,multaAtraso:Number(e.target.value)}))}/>
-                    <span className="input-hint">⚠️ Salvo para referência — cálculo automático de multa previsto para v6</span>
+                    <input className="input" type="number" min={0} max={20} step="0.1"
+                      value={formF.multaAtraso ?? 10}
+                      onChange={e=>setFormF(f=>({...f,multaAtraso:Number(e.target.value)}))}/>
+                    <span className="input-hint">Aplicada uma única vez no 1º dia de atraso</span>
+                  </div>
+                  <div className="field">
+                    <label>Juros por Atraso (% ao mês)</label>
+                    <input className="input" type="number" min={0} max={10} step="0.1"
+                      value={formF.jurosAtraso ?? 2}
+                      onChange={e=>setFormF(f=>({...f,jurosAtraso:Number(e.target.value)}))}/>
+                    <span className="input-hint">Proporcional por dia — calculado a partir do 2º dia. Use 0 para desativar.</span>
                   </div>
                 </div>
+
+                {/* Preview de simulação */}
+                <div style={{
+                  marginTop:14, padding:'12px 14px',
+                  background:'var(--bg-hover)', borderRadius:9,
+                  fontSize:12, color:'var(--text-2)',
+                }}>
+                  <strong style={{color:'var(--text-1)',display:'block',marginBottom:6}}>
+                    Simulação — mensalidade de R$ 250,00 com {prevDias} dias de atraso
+                  </strong>
+                  <div style={{display:'flex',flexDirection:'column',gap:3}}>
+                    <div style={{display:'flex',justifyContent:'space-between'}}>
+                      <span>Valor original:</span>
+                      <strong style={{color:'var(--text-1)'}}>{fmtR(prevBase)}</strong>
+                    </div>
+                    <div style={{display:'flex',justifyContent:'space-between'}}>
+                      <span>Multa ({prevMulta}%) — 1º dia:</span>
+                      <strong style={{color:'var(--red)'}}>+{fmtR(prevVMulta)}</strong>
+                    </div>
+                    {prevJuros > 0 && (
+                      <div style={{display:'flex',justifyContent:'space-between'}}>
+                        <span>Juros ({prevJuros}%/mês × {prevDias - 1}d):</span>
+                        <strong style={{color:'var(--red)'}}>+{fmtR(prevVJuros)}</strong>
+                      </div>
+                    )}
+                    <div style={{
+                      display:'flex',justifyContent:'space-between',
+                      paddingTop:4, borderTop:'1px solid var(--border)', marginTop:2,
+                    }}>
+                      <span><strong>Total cobrado:</strong></span>
+                      <strong style={{color:'var(--accent)'}}>{fmtR(prevTotal)}</strong>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* ── Desconto por Antecipação ── */}
+              <div className="settings-card">
+                <div className="settings-card-title"><DollarSign size={15}/>Desconto por Antecipação</div>
+                <div className="form-grid">
+                  <div className="field">
+                    <label>Desconto Antecipação (%)</label>
+                    <input className="input" type="number" min={0} max={20} step="0.1"
+                      value={formF.descontoAntecipacao ?? 5}
+                      onChange={e=>setFormF(f=>({...f,descontoAntecipacao:Number(e.target.value)}))}/>
+                    <span className="input-hint">Aplicado automaticamente quando o pagamento é confirmado antes do vencimento. Use 0 para desativar.</span>
+                  </div>
+                </div>
+
+                {prevDesc > 0 && (
+                  <div style={{
+                    marginTop:14, padding:'12px 14px',
+                    background:'var(--bg-hover)', borderRadius:9,
+                    fontSize:12, color:'var(--text-2)',
+                  }}>
+                    <strong style={{color:'var(--text-1)',display:'block',marginBottom:6}}>
+                      Simulação — mensalidade de R$ 250,00 paga antes do vencimento
+                    </strong>
+                    <div style={{display:'flex',flexDirection:'column',gap:3}}>
+                      <div style={{display:'flex',justifyContent:'space-between'}}>
+                        <span>Valor original:</span>
+                        <strong style={{color:'var(--text-1)'}}>{fmtR(prevBase)}</strong>
+                      </div>
+                      <div style={{display:'flex',justifyContent:'space-between'}}>
+                        <span>Desconto ({prevDesc}%):</span>
+                        <strong style={{color:'var(--accent)'}}>−{fmtR(prevDescV)}</strong>
+                      </div>
+                      <div style={{
+                        display:'flex',justifyContent:'space-between',
+                        paddingTop:4, borderTop:'1px solid var(--border)', marginTop:2,
+                      }}>
+                        <span><strong>Total cobrado:</strong></span>
+                        <strong style={{color:'var(--accent)'}}>{fmtR(prevBase - prevDescV)}</strong>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                <div style={{marginTop:16,display:'flex',justifyContent:'flex-end'}}>
+                  <button className="btn btn-primary" onClick={saveFinanceiro}><Save size={14}/> Salvar</button>
+                </div>
+              </div>
+
+              {/* ── Dados para Pagamento via Pix ── */}
+              <div className="settings-card">
+                <div className="settings-card-title"><DollarSign size={15}/>Pagamento via Pix</div>
+                <p style={{fontSize:12,color:'var(--text-3)',marginBottom:14}}>
+                  A chave e o QR Code aparecem no boleto/cobrança gerado para o aluno.
+                </p>
+                <div className="form-grid">
+                  <div className="field">
+                    <label>Tipo de Chave Pix</label>
+                    <select className="input" value={formF.pixTipo||'email'}
+                      onChange={e=>setFormF(f=>({...f,pixTipo:e.target.value}))}>
+                      <option value="email">E-mail</option>
+                      <option value="cpf">CPF</option>
+                      <option value="cnpj">CNPJ</option>
+                      <option value="telefone">Telefone</option>
+                      <option value="aleatoria">Chave Aleatória</option>
+                    </select>
+                  </div>
+                  <div className="field">
+                    <label>Chave Pix</label>
+                    <input className="input"
+                      placeholder={
+                        formF.pixTipo==='email'    ? 'exemplo@email.com' :
+                        formF.pixTipo==='cpf'      ? '000.000.000-00' :
+                        formF.pixTipo==='cnpj'     ? '00.000.000/0000-00' :
+                        formF.pixTipo==='telefone' ? '(11) 99999-9999' :
+                        'Chave aleatória'
+                      }
+                      value={formF.pixChave||''}
+                      onChange={e=>setFormF(f=>({...f,pixChave:e.target.value}))}/>
+                    <span className="input-hint">Será exibida no boleto como instrução de pagamento</span>
+                  </div>
+                </div>
+
+                {/* Upload do QR Code */}
+                <div className="field" style={{marginTop:12}}>
+                  <label>QR Code do Pix (imagem)</label>
+                  <div style={{display:'flex',alignItems:'flex-start',gap:16,marginTop:6}}>
+                    {/* Preview do QR Code */}
+                    {formF.pixQrCode ? (
+                      <div style={{position:'relative',flexShrink:0}}>
+                        <img src={formF.pixQrCode} alt="QR Code Pix"
+                          style={{width:120,height:120,objectFit:'contain',
+                            border:'2px solid var(--border)',borderRadius:10,
+                            background:'#fff',padding:6}}/>
+                        <button
+                          className="btn btn-ghost btn-xs"
+                          style={{position:'absolute',top:-8,right:-8,
+                            background:'var(--red-dim)',border:'1px solid var(--red)',
+                            borderRadius:'50%',width:22,height:22,padding:0,
+                            display:'flex',alignItems:'center',justifyContent:'center'}}
+                          onClick={()=>setFormF(f=>({...f,pixQrCode:''}))}>
+                          <Trash2 size={11} style={{color:'var(--red)'}}/>
+                        </button>
+                      </div>
+                    ) : (
+                      <div style={{
+                        width:120,height:120,border:'2px dashed var(--border)',
+                        borderRadius:10,display:'flex',flexDirection:'column',
+                        alignItems:'center',justifyContent:'center',
+                        gap:6,color:'var(--text-3)',fontSize:11,flexShrink:0,
+                        background:'var(--bg-hover)',
+                      }}>
+                        <Upload size={22} style={{opacity:.4}}/>
+                        <span style={{textAlign:'center',lineHeight:1.3}}>Nenhum<br/>QR Code</span>
+                      </div>
+                    )}
+                    <div style={{flex:1}}>
+                      <p style={{fontSize:12,color:'var(--text-3)',marginBottom:10,lineHeight:1.6}}>
+                        Faça uma captura de tela ou exporte o QR Code do seu banco e envie aqui.
+                        A imagem aparecerá impressa no boleto ao lado da chave Pix.
+                      </p>
+                      <label style={{cursor:'pointer'}}>
+                        <input type="file" accept="image/*" style={{display:'none'}}
+                          onChange={e=>{
+                            const file = e.target.files[0]
+                            if (!file) return
+                            const reader = new FileReader()
+                            reader.onload = ev => setFormF(f=>({...f,pixQrCode:ev.target.result}))
+                            reader.readAsDataURL(file)
+                          }}/>
+                        <span className="btn btn-secondary btn-sm">
+                          <Upload size={13}/> Selecionar imagem
+                        </span>
+                      </label>
+                      <p style={{fontSize:11,color:'var(--text-3)',marginTop:8}}>
+                        PNG, JPG ou SVG · Recomendado: 300×300px
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Preview inline */}
+                {(formF.pixChave || formF.pixQrCode) && (
+                  <div style={{
+                    marginTop:16,padding:'12px 14px',
+                    background:'var(--bg-hover)',borderRadius:9,
+                    border:'1px solid var(--border)',
+                  }}>
+                    <div style={{fontSize:11,fontWeight:700,color:'var(--text-3)',
+                      textTransform:'uppercase',letterSpacing:.6,marginBottom:10}}>
+                      Preview no boleto
+                    </div>
+                    <div style={{display:'flex',alignItems:'center',gap:14}}>
+                      {formF.pixQrCode && (
+                        <img src={formF.pixQrCode} alt="QR"
+                          style={{width:72,height:72,objectFit:'contain',
+                            border:'1px solid var(--border)',borderRadius:6,
+                            background:'#fff',padding:4,flexShrink:0}}/>
+                      )}
+                      <div>
+                        <div style={{fontSize:12,fontWeight:600,color:'var(--text-1)',marginBottom:3}}>
+                          Pagamento via Pix
+                        </div>
+                        {formF.pixChave && (
+                          <div style={{fontSize:12,color:'var(--text-2)'}}>
+                            <span style={{color:'var(--text-3)'}}>
+                              {formF.pixTipo==='email'?'E-mail':
+                               formF.pixTipo==='cpf'?'CPF':
+                               formF.pixTipo==='cnpj'?'CNPJ':
+                               formF.pixTipo==='telefone'?'Telefone':'Chave'}:{' '}
+                            </span>
+                            <strong>{formF.pixChave}</strong>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 <div style={{marginTop:16,display:'flex',justifyContent:'flex-end'}}>
                   <button className="btn btn-primary" onClick={saveFinanceiro}><Save size={14}/> Salvar</button>
                 </div>

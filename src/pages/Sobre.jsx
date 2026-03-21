@@ -14,13 +14,13 @@ const AUTOR = {
   cor:     '#63dcaa',
 }
 
-const VERSAO = '5.5.2'
+const VERSAO = '5.5.4'
 const ANO    = '2025'
 
 const MODULOS = [
-  { icon: LayoutDashboardIcon, label: 'Dashboard',      desc: 'KPIs, gráficos e visão geral financeira' },
+  { icon: LayoutDashboardIcon, label: 'Dashboard',      desc: 'Abas por perfil: Visão Geral, Financeiro, Pedagógico e Agenda' },
   { icon: UsersIcon,           label: 'Alunos',         desc: 'Cadastro completo, ficha e histórico de pagamentos' },
-  { icon: DollarSignIcon,      label: 'Financeiro',     desc: 'Mensalidades, recibos, relatórios e exportação' },
+  { icon: DollarSignIcon,      label: 'Financeiro',     desc: 'Mensalidades, encargos (multa+juros), desconto antecipado, recibos e exportação' },
   { icon: BookOpenIcon,        label: 'Cursos',         desc: 'Turmas, professores e ocupação' },
   { icon: BarChart2Icon,       label: 'Relatórios',     desc: 'Análise detalhada com exportação CSV/JSON' },
   { icon: CalendarIcon,        label: 'Agenda',         desc: 'Calendário de eventos e atividades' },
@@ -48,10 +48,35 @@ const DEPS = [
 ]
 
 const HISTORICO = [
+  { versao:'5.5.4', data:'Mar/2025', destaques:[
+    'Configurações → Financeiro: campos de Chave Pix (e-mail/CPF/CNPJ/telefone/aleatória) e upload de QR Code',
+    'Boleto/cobrança PDF exibe bloco verde com chave Pix e QR Code quando configurados',
+    'Preview ao vivo na tela de configuração mostrando como ficará no boleto',
+    'QR Code armazenado como base64 — sem dependências externas',
+  ]},
+  { versao:'5.5.3', data:'Mar/2025', destaques:[
+    'Dashboard com abas por perfil: Professor vê Pedagógico+Agenda, Financeiro vê só Financeiro, Admin vê tudo',
+    'Notificações de inadimplência e pendências filtradas por permissão — Professor não vê alertas financeiros',
+    'Badges de inadimplência na sidebar só aparecem para perfis com perm_financeiro >= 1',
+    'Eventos na sineta filtrados por perm_agenda — perfis sem agenda não recebem notificações de eventos',
+    'dev-runner.js reescrito: lê a porta real do output do Vite via regex — elimina race condition de porta',
+    'Encargos financeiros: multa fixa no 1º dia + juros diários a partir do 2º dia (configurável)',
+    'Desconto por antecipação aplicado automaticamente ao confirmar pagamento antes do vencimento',
+    'Dia de vencimento individual por aluno (removido vencimento global)',
+    'Configurações → Financeiro: campos Multa%, Juros%/mês e Desconto% com simulação ao vivo',
+  ]},
   { versao:'5.5.2', data:'Mar/2025', destaques:[
-    'Fix: Frequência adicionada ao menu lateral (entre Cursos e Relatórios)',
-    'Fix: GitHub Actions 403 ao criar Release — permissions: contents: write',
-    'Fix: aviso Node.js 20 depreciado no Actions — FORCE_JAVASCRIPT_ACTIONS_TO_NODE24',
+    'Dashboard com abas por perfil de acesso (Visão Geral, Financeiro, Pedagógico, Agenda)',
+    'Aba ativa lembrada entre sessões por usuário (sessionStorage)',
+    'Notificações filtradas por permissão — perfis sem acesso ao financeiro não veem encargos',
+    'Multa por atraso: aplicada no 1º dia de atraso (fixa, % configurável)',
+    'Juros diários: calculados do 2º dia em diante — valor × (juros%/30) × dias',
+    'Juros recalculados com a data real ao confirmar o pagamento',
+    'Dia de vencimento individual por aluno (removido vencimento global)',
+    'Desconto por antecipação: aplicado ao confirmar pagamento antes do vencimento',
+    'Configurações → Financeiro: campos Multa%, Juros%/mês e Desconto% com simulação ao vivo',
+    'Preview dinâmico de encargos na tela de Configurações',
+    'Badges de inadimplência na sidebar e sino só aparecem para perfis com permissão',
   ]},
   { versao:'5.5.1', data:'Mar/2025', destaques:[
     'Fix: tamanho de texto agora usa CSS zoom — escala fontes, espaçamentos e ícones',
@@ -397,7 +422,7 @@ export default function Sobre() {
                 background:'var(--accent-dim)', display:'flex',
                 alignItems:'center', justifyContent:'center', flexShrink:0,
               }}>
-                <m.icon/>
+                {React.createElement(m.icon)}
               </div>
               <div>
                 <div style={{fontSize:13, fontWeight:500, color:'var(--text-1)'}}>{m.label}</div>
@@ -424,7 +449,7 @@ export default function Sobre() {
             Histórico de Versões
           </div>
           <div style={{display:'flex', alignItems:'center', gap:8}}>
-            <span className="badge bg-gray" style={{fontSize:11}}>4 versões</span>
+            <span className="badge bg-gray" style={{fontSize:11}}>12 versões</span>
             {showHistorico ? <ChevronUp size={16} style={{color:'var(--text-3)'}}/> : <ChevronDown size={16} style={{color:'var(--text-3)'}}/> }
           </div>
         </div>
@@ -521,6 +546,57 @@ export default function Sobre() {
             </div>
           </div>
         )}
+      </div>
+
+      {/* ── CONTRIBUIÇÃO ── */}
+      <div style={{
+        background:'var(--bg-card)', border:'1px solid var(--border)',
+        borderRadius:14, padding:'22px 24px', marginBottom:16,
+      }}>
+        <div style={{
+          fontFamily:"'Syne',sans-serif", fontSize:13, fontWeight:700,
+          color:'var(--text-3)', textTransform:'uppercase', letterSpacing:.8, marginBottom:14,
+        }}>Quer contribuir ou sugerir algo?</div>
+        <p style={{fontSize:13, color:'var(--text-2)', lineHeight:1.7, marginBottom:16}}>
+          O Escola Manager é open source e aceita contribuições! Se você tem uma ideia,
+          encontrou um bug ou quer implementar uma nova funcionalidade, fique à vontade.
+        </p>
+        <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:10}}>
+          <a href={AUTOR.github} target="_blank" rel="noreferrer" style={{
+            display:'flex', alignItems:'center', gap:10, padding:'14px 16px',
+            background:'var(--bg-hover)', border:'1px solid var(--border)',
+            borderRadius:10, textDecoration:'none', transition:'all .15s',
+          }}
+          onMouseEnter={e=>{e.currentTarget.style.borderColor='var(--accent)';e.currentTarget.style.background='var(--accent-dim)'}}
+          onMouseLeave={e=>{e.currentTarget.style.borderColor='var(--border)';e.currentTarget.style.background='var(--bg-hover)'}}>
+            <div style={{width:36, height:36, borderRadius:9, background:'var(--accent-dim)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0}}>
+              <Github size={18} style={{color:'var(--accent)'}}/>
+            </div>
+            <div>
+              <div style={{fontSize:13, fontWeight:600, color:'var(--text-1)'}}>Abrir Pull Request</div>
+              <div style={{fontSize:11, color:'var(--text-3)', marginTop:1}}>github.com/ednelsonsantos</div>
+            </div>
+          </a>
+          <a href={`mailto:${AUTOR.email}`} style={{
+            display:'flex', alignItems:'center', gap:10, padding:'14px 16px',
+            background:'var(--bg-hover)', border:'1px solid var(--border)',
+            borderRadius:10, textDecoration:'none', transition:'all .15s',
+          }}
+          onMouseEnter={e=>{e.currentTarget.style.borderColor='var(--blue)';e.currentTarget.style.background='var(--blu-dim)'}}
+          onMouseLeave={e=>{e.currentTarget.style.borderColor='var(--border)';e.currentTarget.style.background='var(--bg-hover)'}}>
+            <div style={{width:36, height:36, borderRadius:9, background:'var(--blu-dim)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0}}>
+              <Mail size={18} style={{color:'var(--blue)'}}/>
+            </div>
+            <div>
+              <div style={{fontSize:13, fontWeight:600, color:'var(--text-1)'}}>Enviar sugestão por e-mail</div>
+              <div style={{fontSize:11, color:'var(--text-3)', marginTop:1}}>Contate o autor diretamente</div>
+            </div>
+          </a>
+        </div>
+        <p style={{fontSize:12, color:'var(--text-3)', marginTop:14, lineHeight:1.6}}>
+          💡 <strong style={{color:'var(--text-2)'}}>Dica:</strong> Para sugestões de funcionalidades, abra uma
+          <em> Issue</em> no GitHub descrevendo o caso de uso — assim fica registrado e pode ser votado pela comunidade.
+        </p>
       </div>
 
       {/* ── RODAPÉ ── */}

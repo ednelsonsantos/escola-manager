@@ -248,7 +248,7 @@ export default function Login() {
             <Heart size={11} style={{ color: 'var(--red)', fill: 'var(--red)' }}/>
             por
             <strong style={{ color: 'var(--text-2)' }}>Ednelson Santos</strong>
-            &nbsp;·&nbsp; v5.5.2
+            &nbsp;·&nbsp; v5.5.4
           </div>
         </div>
       </div>

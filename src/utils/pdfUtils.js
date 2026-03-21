@@ -139,13 +139,44 @@ export function gerarHTMLBoleto({ pagamento, aluno, turma, escola, settings }) {
 
     ${pagamento.obs ? `<div class="section"><h3>Observações</h3><p style="color:#6b7280; font-size:10pt">${pagamento.obs}</p></div>` : ''}
 
-    <div style="margin-top:20px; padding:12px; border:2px dashed #e5e7eb; border-radius:8px; font-size:9pt; color:#6b7280; text-align:center;">
+    ${(settings?.financeiro?.pixChave || settings?.financeiro?.pixQrCode) ? `
+    <div style="margin-top:16px; padding:14px 16px; background:#f0faf5; border:1.5px solid #25a26e;
+                border-radius:8px; display:flex; align-items:center; gap:16px;">
+      ${settings?.financeiro?.pixQrCode
+        ? `<img src="${settings.financeiro.pixQrCode}" alt="QR Code Pix"
+             style="width:90px; height:90px; object-fit:contain; flex-shrink:0;
+                    border:1px solid #d1fae5; border-radius:6px; background:#fff; padding:4px;"/>`
+        : ''}
+      <div>
+        <div style="font-size:10pt; font-weight:700; color:#065f46; margin-bottom:4px;">
+          💚 Pagamento via Pix
+        </div>
+        ${settings?.financeiro?.pixChave ? `
+        <div style="font-size:9.5pt; color:#374151; margin-bottom:2px;">
+          <span style="color:#6b7280;">
+            ${settings.financeiro.pixTipo === 'email'    ? 'E-mail'
+            : settings.financeiro.pixTipo === 'cpf'      ? 'CPF'
+            : settings.financeiro.pixTipo === 'cnpj'     ? 'CNPJ'
+            : settings.financeiro.pixTipo === 'telefone' ? 'Telefone'
+            : 'Chave'}:
+          </span>
+          <strong style="font-size:10.5pt; letter-spacing:0.3px;">
+            ${settings.financeiro.pixChave}
+          </strong>
+        </div>
+        <div style="font-size:8.5pt; color:#6b7280;">
+          Abra o app do seu banco → Pix → Pagar → Cole ou escaneie a chave acima
+        </div>` : ''}
+      </div>
+    </div>` : ''}
+
+    <div style="margin-top:14px; padding:12px; border:2px dashed #e5e7eb; border-radius:8px; font-size:9pt; color:#6b7280; text-align:center;">
       Em caso de dúvidas, entre em contato com a escola. Este documento não tem valor de recibo bancário.
     </div>
 
     <div class="footer">
       <span>${nomeEscola} · Documento gerado em ${agora()}</span>
-      <span>Escola Manager v5.4 · Software Livre GPL-3.0</span>
+      <span>Escola Manager v5.5.3 · Software Livre GPL-3.0</span>
     </div>
   `
   return wrap(body, `Cobrança — ${aluno?.nome} — ${pagamento.mes}`, nomeEscola)
