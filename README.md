@@ -1,4 +1,4 @@
-# 🎓 Escola Manager v5.5.4
+# 🎓 Escola Manager v5.5.5
 
 Sistema desktop completo para gestão de escolas de idiomas.
 **React 18 + Electron 29 + SQLite · GPL-3.0 · Criado por Ednelson Santos**
