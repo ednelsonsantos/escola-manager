@@ -164,7 +164,7 @@ body {
   font-size:10px; font-weight:700; padding:1px 6px; border-radius:20px; min-width:20px; text-align:center;
 }
 
-.sidebar-footer { padding:10px; border-top:1px solid var(--border); }
+.sidebar-footer { padding:10px; border-top:1px solid var(--border); flex-shrink:0; margin-top:auto; }
 .user-card {
   display:flex; align-items:center; gap:9px; padding:8px 10px;
   border-radius:8px; cursor:pointer; transition:background .15s;
