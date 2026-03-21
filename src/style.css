@@ -115,10 +115,12 @@ body {
 /* ── SIDEBAR ── */
 .sidebar {
   width: var(--sidebar-w);
+  height: 100%;
   background: var(--bg-side);
   border-right: 1px solid var(--border);
   display: flex; flex-direction: column;
   flex-shrink: 0; z-index:20;
+  overflow: hidden;
   transition: background .25s;
 }
 .sidebar-logo {
@@ -140,7 +142,7 @@ body {
 .logo-main { font-family:'Syne',sans-serif; font-size:14.5px; font-weight:700; color:var(--text-1); }
 .logo-sub  { font-size:10px; color:var(--text-3); font-weight:400; letter-spacing:.5px; text-transform:uppercase; }
 
-.sidebar-nav { flex:1; padding:10px 10px; display:flex; flex-direction:column; gap:1px; overflow-y:auto; }
+.sidebar-nav { flex:1; padding:10px 10px; display:flex; flex-direction:column; gap:1px; overflow-y:auto; position:relative; z-index:0; }
 .nav-label   { font-size:9px; font-weight:700; letter-spacing:1.2px; text-transform:uppercase; color:var(--text-3); padding:10px 10px 3px; }
 
 .nav-btn {
@@ -164,7 +166,7 @@ body {
   font-size:10px; font-weight:700; padding:1px 6px; border-radius:20px; min-width:20px; text-align:center;
 }
 
-.sidebar-footer { padding:10px; border-top:1px solid var(--border); flex-shrink:0; margin-top:auto; }
+.sidebar-footer { padding:10px; border-top:1px solid var(--border); flex-shrink:0; position:relative; z-index:1; background:var(--bg-side); }
 .user-card {
   display:flex; align-items:center; gap:9px; padding:8px 10px;
   border-radius:8px; cursor:pointer; transition:background .15s;
@@ -714,7 +716,10 @@ tr:hover td { background:var(--bg-hover); color:var(--text-1); }
   :root { --sidebar-w: 196px; }
   .stat-grid { grid-template-columns: repeat(2,1fr); }
 }
-@media (max-width: 860px) {
+@media (max-width: 600px) {
+  /* Breakpoint reduzido: app desktop tem minWidth:1024px físicos.
+     Mesmo com DPI scaling de 150%, os CSS pixels nunca chegam a 600px.
+     860px causava sidebar sumir em telas com DPI > 125%. */
   .sidebar { display: none; }
   .stat-grid { grid-template-columns: 1fr 1fr; }
 }

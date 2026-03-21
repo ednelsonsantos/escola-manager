@@ -255,7 +255,7 @@ export default function App() {
           </div>
         </div>
 
-        <nav className="sidebar-nav">
+        <nav className="sidebar-nav" style={{paddingBottom:'82px'}}>
           <div className="nav-label">Principal</div>
           {navVisivel.map(item=>(
             <button key={item.path} className={`nav-btn${loc.pathname===item.path?' active':''}`} onClick={()=>nav(item.path)}>
@@ -287,19 +287,58 @@ export default function App() {
           </button>
         </nav>
 
-        <div className="sidebar-footer">
-          <div className="user-card">
-            <div className="user-av" style={{background:user?.avatar_cor||'var(--accent)'}}>
+        <div style={{
+          padding:'10px 12px',
+          borderTop:'1px solid var(--border)',
+          position:'fixed',
+          bottom:0,
+          left:0,
+          width:'var(--sidebar-w)',
+          zIndex:9999,
+          background:'var(--bg-side)',
+        }}>
+          <div style={{
+            display:'flex', alignItems:'center', gap:10,
+            padding:'8px 10px', borderRadius:10,
+            background:'var(--bg-hover)',
+          }}>
+            {/* Avatar */}
+            <div style={{
+              width:32, height:32, borderRadius:8, flexShrink:0,
+              background:user?.avatar_cor||'var(--accent)',
+              display:'flex', alignItems:'center', justifyContent:'center',
+              fontFamily:"'Syne',sans-serif", fontSize:11, fontWeight:700, color:'#fff',
+            }}>
               {(user?.nome||'AD').split(' ').slice(0,2).map(p=>p[0]).join('').toUpperCase()}
             </div>
-            <div style={{flex:1,minWidth:0}}>
-              <div className="user-name">{user?.nome||'Usuário'}</div>
-              <div className="user-role" style={{color:user?.perfil_cor||'var(--text-3)'}}>{user?.perfil_nome||'—'}</div>
+            {/* Info */}
+            <div style={{flex:1, minWidth:0}}>
+              <div style={{
+                fontSize:13, fontWeight:600, color:'var(--text-1)',
+                overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap',
+              }}>
+                {user?.nome||'Usuário'}
+              </div>
+              <div style={{
+                fontSize:11, color:user?.perfil_cor||'var(--text-3)',
+                overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap',
+              }}>
+                {user?.perfil_nome||'—'}
+              </div>
             </div>
-            <button title="Sair" onClick={logout}
-              style={{background:'none',border:'none',cursor:'pointer',color:'var(--text-3)',padding:4,borderRadius:6,display:'flex',transition:'color .15s'}}
+            {/* Botão Sair */}
+            <button
+              title="Sair"
+              onClick={logout}
+              style={{
+                background:'none', border:'none', cursor:'pointer',
+                color:'var(--text-3)', padding:4, borderRadius:6,
+                display:'flex', alignItems:'center', justifyContent:'center',
+                flexShrink:0, transition:'color .15s',
+              }}
               onMouseEnter={e=>e.currentTarget.style.color='var(--red)'}
-              onMouseLeave={e=>e.currentTarget.style.color='var(--text-3)'}>
+              onMouseLeave={e=>e.currentTarget.style.color='var(--text-3)'}
+            >
               <LogOut size={15}/>
             </button>
           </div>

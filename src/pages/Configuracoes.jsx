@@ -593,7 +593,7 @@ export default function Configuracoes() {
               <div className="settings-card" style={{marginTop:14}}>
                 <div className="settings-card-title"><Monitor size={15}/>Informações do Sistema</div>
                 {[
-                  ['Versão',         'Escola Manager v5.1.1'],
+                  ['Versão',         'Escola Manager v5.5.5'],
                   ['Ambiente',       'Electron 29 + React 18 + Vite 5'],
                   ['Banco de dados', 'SQLite (better-sqlite3) + localStorage'],
                   ['Licença',        'GNU GPL v3.0 — Free to Use Forever'],
@@ -616,7 +616,7 @@ export default function Configuracoes() {
                   <span style={{fontSize:22}}>🎓</span>
                   <div>
                     <div style={{fontFamily:"'Syne',sans-serif",fontSize:13,fontWeight:700,color:'var(--text-1)'}}>
-                      Escola Manager v5.1.1
+                      Escola Manager v5.5.5
                     </div>
                     <div style={{fontSize:12,color:'var(--text-2)',marginTop:2}}>
                       Software livre sob licença GPL-3.0 · Criado por <strong>Ednelson Santos</strong>

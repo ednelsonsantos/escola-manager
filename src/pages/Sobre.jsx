@@ -14,7 +14,7 @@ const AUTOR = {
   cor:     '#63dcaa',
 }
 
-const VERSAO = '5.5.4'
+const VERSAO = '5.5.5'
 const ANO    = '2025'
 
 const MODULOS = [
@@ -48,6 +48,13 @@ const DEPS = [
 ]
 
 const HISTORICO = [
+  { versao:'5.5.5', data:'Mar/2025', destaques:[
+    'Fix definitivo: sidebar footer visível no .exe — position:fixed com z-index:9999',
+    'Sidebar-nav recebe padding-bottom para último item não ficar coberto pelo footer',
+    'Correção detectada via DevTools do Electron: nav cobria o footer no stacking context',
+    'Breakpoint da media query reduzido de 860px para 600px — sidebar não some com DPI scaling alto',
+    'Sidebar com height:100% e overflow:hidden para comportamento consistente dev vs .exe',
+  ]},
   { versao:'5.5.4', data:'Mar/2025', destaques:[
     'Configurações → Financeiro: campos de Chave Pix (e-mail/CPF/CNPJ/telefone/aleatória) e upload de QR Code',
     'Boleto/cobrança PDF exibe bloco verde com chave Pix e QR Code quando configurados',
@@ -449,7 +456,7 @@ export default function Sobre() {
             Histórico de Versões
           </div>
           <div style={{display:'flex', alignItems:'center', gap:8}}>
-            <span className="badge bg-gray" style={{fontSize:11}}>12 versões</span>
+            <span className="badge bg-gray" style={{fontSize:11}}>13 versões</span>
             {showHistorico ? <ChevronUp size={16} style={{color:'var(--text-3)'}}/> : <ChevronDown size={16} style={{color:'var(--text-3)'}}/> }
           </div>
         </div>
