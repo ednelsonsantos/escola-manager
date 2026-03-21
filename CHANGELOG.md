@@ -4,6 +4,13 @@ Formato: [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/) · [SemVer]
 
 ---
 
+## [5.5.4-hotfix] — 2025-03
+
+### Corrigido
+- **Sidebar footer sumindo** — `.sidebar-footer` recebia `flex-shrink` do container e era comprimido para fora da área visível quando havia muitos itens no nav. Adicionado `flex-shrink:0` e `margin-top:auto` no `style.css`
+
+---
+
 ## [5.5.4] — 2025-03
 
 ### Adicionado
