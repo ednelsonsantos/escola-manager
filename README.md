@@ -22,9 +22,10 @@ npm run build     # gera instalador .exe para Windows
 
 | Usuário | Senha | Perfil |
 |---|---|---|
-| `admin` | admin123 | Administrador |
+| `admin` | chado | Administrador |
 | `secretaria` | sec123 | Secretaria |
 | `demo` | demo | Demonstração |
+| `professor` | 1234 | Professor |
 
 ---
 
