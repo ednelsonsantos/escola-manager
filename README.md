@@ -197,8 +197,8 @@ Toda contribuição é bem-vinda — desde correções de typo até novas funcio
 - [x] Log de Auditoria completo
 - [x] Backup automático + restauração
 - [x] Chave Pix e QR Code no boleto do aluno
-- [ ] **v6** — Migrar alunos/turmas/pagamentos/eventos para SQLite
-- [ ] Integração com Evolution API para envio em massa via WhatsApp
+- [talvez ] **v6** — Migrar alunos/turmas/pagamentos/eventos para SQLite
+- [talvez ] Integração com Evolution API para envio em massa via WhatsApp
 
 > 💡 Tem uma ideia? Abra uma Issue no GitHub ou entre em contato pelo e-mail/redes sociais do autor.
 
