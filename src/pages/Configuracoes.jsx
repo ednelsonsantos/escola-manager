@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { Building2, DollarSign, Monitor, Palette, Database, Save, RefreshCw, Sun, Moon, School, Image, Upload, Trash2, RotateCcw, FolderOpen, CheckCircle, AlertTriangle } from 'lucide-react'
+import { Building2, DollarSign, Monitor, Palette, Database, Save, RefreshCw, Sun, Moon, School, Image, Upload, Trash2, RotateCcw, FolderOpen, CheckCircle, AlertTriangle, ArrowRightLeft, Loader } from 'lucide-react'
 import { useApp } from '../context/AppContext.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 import { ConfirmModal } from '../components/Modal.jsx'
@@ -60,6 +60,139 @@ export default function Configuracoes() {
   const fmtR = v => `R$ ${Number(v).toFixed(2).replace('.', ',')}`
   const [formId,  setFormId]  = useState({ nome_escola: identidade?.nome_escola||'', slogan: identidade?.slogan||'', logo_base64: identidade?.logo_base64||'', logo_nome: identidade?.logo_nome||'' })
   const [salvandoId, setSalvandoId] = useState(false)
+
+  const [migrando,      setMigrando]      = useState(false)
+  const [migracaoLog,   setMigracaoLog]   = useState([])   // linhas de progresso
+  const [migracaoFim,   setMigracaoFim]   = useState(null) // { ok, stats } | null
+  const [confirmMigrar, setConfirmMigrar] = useState(false)
+
+  async function executarMigracao() {
+    setConfirmMigrar(false)
+    setMigrando(true)
+    setMigracaoFim(null)
+    const log = []
+    const addLog = (msg, tipo = 'info') => {
+      log.push({ msg, tipo, ts: new Date().toLocaleTimeString('pt-BR') })
+      setMigracaoLog([...log])
+    }
+
+    try {
+      const api = window.electronAPI
+      const u   = JSON.parse(sessionStorage.getItem('em_user_v5') || '{}')
+      const req = { userId: u.id || null, userLogin: u.login || 'migracao' }
+
+      // ── 1. Ler dados do localStorage ──────────────────────────────────────
+      addLog('Lendo dados do localStorage...')
+      const professoresLS = JSON.parse(localStorage.getItem('em_profs')  || '[]')
+      const turmasLS      = JSON.parse(localStorage.getItem('em_turmas') || '[]')
+      const alunosLS      = JSON.parse(localStorage.getItem('em_alunos') || '[]')
+      addLog(`  Encontrados: ${professoresLS.length} professores, ${turmasLS.length} turmas, ${alunosLS.length} alunos`)
+
+      // ── 2. Migrar professores ─────────────────────────────────────────────
+      addLog('Migrando professores...')
+      // Mapeia lsId → novo id SQLite
+      const mapProf = {}
+      let profOk = 0, profSkip = 0
+      for (const p of professoresLS) {
+        // Verifica se já foi migrado (listarProfessores retorna por nome+idioma)
+        const todos = await api.professoresListar({})
+        const jaExiste = todos.find(x =>
+          x.nome === p.nome && x.idioma === (p.idioma || '')
+        )
+        if (jaExiste) {
+          mapProf[p.id] = jaExiste.id
+          profSkip++
+          continue
+        }
+        const res = await api.professoresCriar({
+          nome:     p.nome,
+          idioma:   p.idioma    || '',
+          email:    p.email     || '',
+          telefone: p.telefone  || '',
+          ativo:    p.ativo !== false ? 1 : 0,
+        }, req)
+        if (res.ok) { mapProf[p.id] = res.id; profOk++ }
+        else addLog(`  ⚠ Professor "${p.nome}": ${res.erro}`, 'warn')
+      }
+      addLog(`  Professores: ${profOk} criados, ${profSkip} já existiam`, 'ok')
+
+      // ── 3. Migrar turmas ──────────────────────────────────────────────────
+      addLog('Migrando turmas...')
+      const mapTurma = {}
+      let turmaOk = 0, turmaSkip = 0
+      for (const t of turmasLS) {
+        const todas = await api.turmasListar({})
+        const jaExiste = todas.find(x => x.codigo === (t.codigo || '').toUpperCase())
+        if (jaExiste) {
+          mapTurma[t.id] = jaExiste.id
+          turmaSkip++
+          continue
+        }
+        const res = await api.turmasCriar({
+          codigo:      (t.codigo || '').toUpperCase(),
+          idioma:      t.idioma      || '',
+          nivel:       t.nivel       || 'Básico',
+          professorId: mapProf[t.professorId] || null,
+          horario:     t.horario     || '',
+          vagas:       t.vagas       ?? 15,
+          ativa:       t.ativa !== false ? 1 : 0,
+        }, req)
+        if (res.ok) { mapTurma[t.id] = res.id; turmaOk++ }
+        else addLog(`  ⚠ Turma "${t.codigo}": ${res.erro}`, 'warn')
+      }
+      addLog(`  Turmas: ${turmaOk} criadas, ${turmaSkip} já existiam`, 'ok')
+
+      // ── 4. Migrar alunos ──────────────────────────────────────────────────
+      addLog('Migrando alunos...')
+      let alunoOk = 0, alunoSkip = 0
+      for (const a of alunosLS) {
+        // ls_id é a chave idempotente — se já existe, pula
+        const todos = await api.alunosListar({})
+        const jaExiste = todos.find(x => x.lsId === a.id)
+        if (jaExiste) { alunoSkip++; continue }
+
+        const res = await api.alunosCriar({
+          lsId:            a.id,
+          nome:            a.nome,
+          email:           a.email           || '',
+          telefone:        a.telefone        || '',
+          turmaId:         mapTurma[a.turmaId] || null,
+          mensalidade:     a.mensalidade     ?? 0,
+          diaVencimento:   a.diaVencimento   ?? 10,
+          status:          a.status          || 'Ativo',
+          dataNasc:        a.dataNasc        || '',
+          dataMatricula:   a.dataMatricula   || '',
+          obs:             a.obs             || '',
+          respNome:        a.respNome        || '',
+          respTelefone:    a.respTelefone    || '',
+          respEmail:       a.respEmail       || '',
+          respParentesco:  a.respParentesco  || '',
+          turmaAnteriorId: a.turmaAnteriorId ? (mapTurma[a.turmaAnteriorId] || null) : null,
+          dataRematricula: a.dataRematricula || '',
+          dataReativacao:  a.dataReativacao  || '',
+        }, req)
+        if (res.ok) alunoOk++
+        else addLog(`  ⚠ Aluno "${a.nome}": ${res.erro}`, 'warn')
+      }
+      addLog(`  Alunos: ${alunoOk} criados, ${alunoSkip} já existiam`, 'ok')
+
+      // ── 5. Resultado ──────────────────────────────────────────────────────
+      const stats = {
+        professores: profOk + profSkip,
+        turmas:      turmaOk + turmaSkip,
+        alunos:      alunoOk + alunoSkip,
+      }
+      addLog('Migração concluída com sucesso! ✓', 'ok')
+      setMigracaoFim({ ok: true, stats })
+      // Ativa o flag — a partir daqui o AppContext lê do SQLite automaticamente
+      updateSettings('sistema', { migradoSQLite: true })
+    } catch (e) {
+      addLog(`Erro inesperado: ${e.message}`, 'error')
+      setMigracaoFim({ ok: false, erro: e.message })
+    } finally {
+      setMigrando(false)
+    }
+  }
 
   function saveEscola()      { updateSettings('escola',     formE) }
   function saveFinanceiro()  { updateSettings('financeiro', formF) }
@@ -593,7 +726,7 @@ export default function Configuracoes() {
               <div className="settings-card" style={{marginTop:14}}>
                 <div className="settings-card-title"><Monitor size={15}/>Informações do Sistema</div>
                 {[
-                  ['Versão',         'Escola Manager v5.5.5'],
+                  ['Versão',         'Escola Manager v5.7.0'],
                   ['Ambiente',       'Electron 29 + React 18 + Vite 5'],
                   ['Banco de dados', 'SQLite (better-sqlite3) + localStorage'],
                   ['Licença',        'GNU GPL v3.0 — Free to Use Forever'],
@@ -616,7 +749,7 @@ export default function Configuracoes() {
                   <span style={{fontSize:22}}>🎓</span>
                   <div>
                     <div style={{fontFamily:"'Syne',sans-serif",fontSize:13,fontWeight:700,color:'var(--text-1)'}}>
-                      Escola Manager v5.5.5
+                      Escola Manager v5.7.0
                     </div>
                     <div style={{fontSize:12,color:'var(--text-2)',marginTop:2}}>
                       Software livre sob licença GPL-3.0 · Criado por <strong>Ednelson Santos</strong>
@@ -717,6 +850,105 @@ export default function Configuracoes() {
                 </div>
               </div>
 
+              {/* ── MIGRAÇÃO localStorage → SQLite ── */}
+              <div className="settings-card" style={{marginTop:14}}>
+                <div className="settings-card-title"><ArrowRightLeft size={15}/>Migração localStorage → SQLite</div>
+
+                <div style={{fontSize:13,color:'var(--text-2)',marginBottom:14,lineHeight:1.6}}>
+                  Copia os dados de <strong>professores</strong>, <strong>turmas</strong> e <strong>alunos</strong> do
+                  armazenamento local (localStorage) para o banco SQLite permanente.
+                  A operação é <strong>idempotente</strong> — pode ser executada várias vezes sem duplicar dados.
+                </div>
+
+                {/* Resultado da migração */}
+                {migracaoFim && (
+                  <div style={{
+                    marginBottom:14, padding:'12px 14px', borderRadius:9,
+                    background: migracaoFim.ok ? 'var(--accent-dim)' : 'var(--red-dim)',
+                    border: `1px solid ${migracaoFim.ok ? 'var(--border-accent)' : 'rgba(242,97,122,.3)'}`,
+                  }}>
+                    <div style={{display:'flex',alignItems:'center',gap:8,marginBottom: migracaoFim.ok ? 8 : 0}}>
+                      {migracaoFim.ok
+                        ? <CheckCircle size={15} style={{color:'var(--accent)',flexShrink:0}}/>
+                        : <AlertTriangle size={15} style={{color:'var(--red)',flexShrink:0}}/>
+                      }
+                      <strong style={{fontSize:13,color:migracaoFim.ok?'var(--accent)':'var(--red)'}}>
+                        {migracaoFim.ok ? 'Migração concluída com sucesso!' : `Erro: ${migracaoFim.erro}`}
+                      </strong>
+                    </div>
+                    {migracaoFim.ok && migracaoFim.stats && (
+                      <div style={{display:'flex',gap:14,flexWrap:'wrap',fontSize:12,color:'var(--text-2)',paddingLeft:23}}>
+                        <span>{migracaoFim.stats.professores} professores</span>
+                        <span>{migracaoFim.stats.turmas} turmas</span>
+                        <span>{migracaoFim.stats.alunos} alunos</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Log de progresso */}
+                {migracaoLog.length > 0 && (
+                  <div style={{
+                    marginBottom:14, padding:'10px 12px',
+                    background:'var(--bg-app)', borderRadius:8,
+                    border:'1px solid var(--border)',
+                    fontFamily:"'DM Mono','Courier New',monospace",
+                    fontSize:11.5, maxHeight:200, overflowY:'auto',
+                    display:'flex', flexDirection:'column', gap:2,
+                  }}>
+                    {migracaoLog.map((l, i) => (
+                      <div key={i} style={{
+                        color: l.tipo==='ok'    ? 'var(--accent)'   :
+                               l.tipo==='warn'  ? 'var(--yellow)'   :
+                               l.tipo==='error' ? 'var(--red)'      : 'var(--text-2)',
+                      }}>
+                        <span style={{color:'var(--text-3)',marginRight:8}}>{l.ts}</span>
+                        {l.msg}
+                      </div>
+                    ))}
+                    {migrando && (
+                      <div style={{color:'var(--text-3)',display:'flex',alignItems:'center',gap:6}}>
+                        <span style={{
+                          display:'inline-block',width:9,height:9,
+                          border:'1.5px solid var(--text-3)',borderTopColor:'var(--accent)',
+                          borderRadius:'50%',animation:'spin .7s linear infinite',
+                        }}/>
+                        Aguardando...
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                <div style={{display:'flex',alignItems:'center',gap:10,flexWrap:'wrap'}}>
+                  <button
+                    className="btn btn-primary"
+                    disabled={migrando}
+                    onClick={() => setConfirmMigrar(true)}
+                  >
+                    {migrando
+                      ? <><Loader size={13} style={{animation:'spin .7s linear infinite'}}/> Migrando...</>
+                      : <><ArrowRightLeft size={13}/> Executar migração</>
+                    }
+                  </button>
+                  {migracaoLog.length > 0 && !migrando && (
+                    <button className="btn btn-ghost btn-sm"
+                      onClick={() => { setMigracaoLog([]); setMigracaoFim(null) }}>
+                      Limpar log
+                    </button>
+                  )}
+                </div>
+
+                <div style={{
+                  marginTop:12, padding:'9px 11px',
+                  background:'var(--bg-hover)', borderRadius:7,
+                  fontSize:11.5, color:'var(--text-3)', lineHeight:1.5,
+                }}>
+                  <strong style={{color:'var(--text-2)'}}>Ordem:</strong> professores → turmas → alunos.
+                  IDs originais são preservados via <code style={{fontSize:10,background:'var(--bg-card)',padding:'1px 4px',borderRadius:3}}>ls_id</code>,
+                  garantindo que rematrículas e histórico não se percam.
+                </div>
+              </div>
+
               <div className="settings-card" style={{marginTop:14, border:'1px solid var(--red-dim)'}}>
                 <div className="settings-card-title" style={{color:'var(--red)'}}>⚠️ Zona de Risco</div>
                 <div style={{fontSize:13,color:'var(--text-2)',marginBottom:16}}>
@@ -779,6 +1011,22 @@ export default function Configuracoes() {
           )}
         </div>
       </div>
+
+      {/* Modal: Confirmar migração */}
+      {confirmMigrar && (
+        <ConfirmModal
+          title="Executar migração localStorage → SQLite"
+          msg={
+            'O sistema irá copiar professores, turmas e alunos do armazenamento local para o banco SQLite.\n\n' +
+            'A operação é segura e idempotente — dados já migrados são ignorados.\n\n' +
+            'Os dados originais no localStorage NÃO serão removidos. Você pode continuar ' +
+            'usando o sistema normalmente durante e após a migração.\n\n' +
+            'Deseja continuar?'
+          }
+          onConfirm={executarMigracao}
+          onClose={() => setConfirmMigrar(false)}
+        />
+      )}
 
       {/* Modal: Limpar tudo */}
       {confirmLimpar && (

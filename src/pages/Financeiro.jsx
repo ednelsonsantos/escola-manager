@@ -1,4 +1,6 @@
 import React, { useState, useMemo } from 'react'
+import { createPortal } from 'react-dom'
+import { useNavigate } from 'react-router-dom'
 import { Bar } from 'react-chartjs-2'
 import { Chart, CategoryScale, LinearScale, BarElement, Tooltip } from 'chart.js'
 import {
@@ -171,6 +173,7 @@ function ModalEditarPagamento({ pagamento, alunos, turmas, meses, onSalvar, onCl
 
 // ═══════════════════════════════════════════════════════════════════════════════
 export default function Financeiro() {
+  const nav = useNavigate()
   const {
     alunos, pagamentos, turmas, settings, tema,
     registrarPagamento, updatePagamento, deletePagamento,
@@ -240,16 +243,16 @@ export default function Financeiro() {
     plugins: {
       legend: { display: false },
       tooltip: {
-        backgroundColor: isDark ? '#161a22' : '#fff',
-        borderColor: isDark ? 'rgba(255,255,255,.08)' : 'rgba(0,0,0,.08)',
-        borderWidth: 1, titleColor: isDark ? '#edf0f9' : '#1a1e2c',
-        bodyColor: isDark ? '#7f8ba4' : '#5a647d', padding: 12,
+        backgroundColor: isDark ? '#13161f' : '#f8f9fc',
+        borderColor: isDark ? 'rgba(255,255,255,.10)' : 'rgba(0,0,0,.10)',
+        borderWidth: 1, titleColor: isDark ? '#edf0f9' : '#111827',
+        bodyColor: isDark ? '#b0bcd4' : '#374151', padding: 12,
         callbacks: { label: ctx => ` ${formatBRL(ctx.parsed.y)}` },
       },
     },
     scales: {
-      x: { grid: { display: false }, ticks: { color: isDark ? '#555d78' : '#9aa4b8', font: { size: 11 } }, border: { display: false } },
-      y: { grid: { color: isDark ? 'rgba(255,255,255,.04)' : 'rgba(0,0,0,.05)' }, ticks: { color: isDark ? '#555d78' : '#9aa4b8', font: { size: 11 }, callback: v => `R$${(v / 1000).toFixed(0)}k` }, border: { display: false } },
+      x: { grid: { display: false }, ticks: { color: isDark ? '#b0bcd4' : '#374151', font: { size: 11 } }, border: { display: false } },
+      y: { grid: { color: isDark ? 'rgba(255,255,255,.06)' : 'rgba(0,0,0,.06)' }, ticks: { color: isDark ? '#b0bcd4' : '#374151', font: { size: 11 }, callback: v => `R$${(v / 1000).toFixed(0)}k` }, border: { display: false } },
     },
   }
 
@@ -391,6 +394,18 @@ export default function Financeiro() {
                 fontSize: 10, fontWeight: 700, padding: '1px 6px', borderRadius: 20,
               }}>{vencidosPendentes}</span>
             )}
+          </button>
+
+          {/* Ver inadimplentes — atalho para a página dedicada */}
+          <button className="btn btn-secondary" style={{ width: '100%', justifyContent: 'center' }}
+            onClick={() => nav('/financeiro/inadimplentes')}>
+            <AlertTriangle size={14} style={{color:'var(--red)'}}/> Ver Inadimplentes
+          </button>
+
+          {/* Fluxo de caixa */}
+          <button className="btn btn-secondary" style={{ width: '100%', justifyContent: 'center' }}
+            onClick={() => nav('/financeiro/fluxo-caixa')}>
+            <TrendingUp size={14} style={{color:'var(--accent)'}}/> Fluxo de Caixa
           </button>
 
           {/* Exportar */}
@@ -690,7 +705,7 @@ export default function Financeiro() {
       )}
 
       {/* Lançar pagamento avulso */}
-      {modalAdd && (
+      {modalAdd && createPortal(
         <Modal
           title="Lançar Pagamento Avulso"
           onClose={() => setModalAdd(false)}
@@ -744,7 +759,8 @@ export default function Financeiro() {
               </select>
             </div>
           </div>
-        </Modal>
+        </Modal>,
+        document.body
       )}
 
       {/* Recibo */}

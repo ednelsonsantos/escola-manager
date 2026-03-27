@@ -8,18 +8,18 @@
 :root,
 [data-theme="dark"] {
   --bg-app:      #0c0e14;
-  --bg-side:     #111318;
-  --bg-card:     #161a22;
-  --bg-hover:    #1c2030;
-  --bg-input:    #1a1e28;
+  --bg-side:     #101318;
+  --bg-card:     #13161f;
+  --bg-hover:    #1e2233;
+  --bg-input:    #181c28;
   --bg-overlay:  rgba(0,0,0,0.7);
 
   --border:      rgba(255,255,255,0.07);
   --border-focus:rgba(99,220,170,0.4);
 
   --text-1:  #edf0f9;
-  --text-2:  #7f8ba4;
-  --text-3:  #444e66;
+  --text-2:  #b0bcd4;
+  --text-3:  #6e7d9a;
 
   --accent:      #63dcaa;
   --accent-2:    #3ab8ff;
@@ -42,19 +42,19 @@
 
 /* ── LIGHT THEME ── */
 [data-theme="light"] {
-  --bg-app:      #f0f2f8;
-  --bg-side:     #ffffff;
-  --bg-card:     #ffffff;
-  --bg-hover:    #f4f6fc;
-  --bg-input:    #f4f6fc;
+  --bg-app:      #eef0f6;
+  --bg-side:     #f8f9fc;
+  --bg-card:     #f8f9fc;
+  --bg-hover:    #edf0f7;
+  --bg-input:    #edf0f7;
   --bg-overlay:  rgba(0,0,0,0.45);
 
   --border:      rgba(0,0,0,0.08);
   --border-focus:rgba(37,162,110,0.5);
 
-  --text-1:  #1a1e2c;
-  --text-2:  #5a647d;
-  --text-3:  #a0aabe;
+  --text-1:  #111827;
+  --text-2:  #1f2937;
+  --text-3:  #374151;
 
   --accent:     #25a26e;
   --accent-2:   #1a7fc4;
@@ -120,7 +120,7 @@ body {
   border-right: 1px solid var(--border);
   display: flex; flex-direction: column;
   flex-shrink: 0; z-index:20;
-  overflow: hidden;
+  overflow: visible;
   transition: background .25s;
 }
 .sidebar-logo {
@@ -142,7 +142,7 @@ body {
 .logo-main { font-family:'Syne',sans-serif; font-size:14.5px; font-weight:700; color:var(--text-1); }
 .logo-sub  { font-size:10px; color:var(--text-3); font-weight:400; letter-spacing:.5px; text-transform:uppercase; }
 
-.sidebar-nav { flex:1; padding:10px 10px; display:flex; flex-direction:column; gap:1px; overflow-y:auto; position:relative; z-index:0; }
+.sidebar-nav { flex:1; min-height:0; padding:10px 10px; display:flex; flex-direction:column; gap:1px; overflow-y:auto; position:relative; z-index:0; }
 .nav-label   { font-size:9px; font-weight:700; letter-spacing:1.2px; text-transform:uppercase; color:var(--text-3); padding:10px 10px 3px; }
 
 .nav-btn {

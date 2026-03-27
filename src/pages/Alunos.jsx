@@ -118,6 +118,48 @@ function AlunoDetail({ aluno, turmas, professores, pagamentos, onClose, onEdit }
               <span className="detail-val" style={{fontSize:12,color:'var(--text-2)'}}>{aluno.obs}</span>
             </div>
           )}
+
+          {/* Responsável */}
+          {(aluno.respNome || aluno.respTelefone) && (
+            <div style={{marginTop:16,paddingTop:14,borderTop:'1px solid var(--border)'}}>
+              <div style={{fontSize:11,fontWeight:700,color:'var(--text-3)',textTransform:'uppercase',letterSpacing:'.8px',marginBottom:10}}>
+                Responsável
+              </div>
+              {aluno.respNome && (
+                <div className="detail-row">
+                  <span className="detail-key">Nome</span>
+                  <span className="detail-val">
+                    {aluno.respNome}
+                    {aluno.respParentesco && <span style={{marginLeft:6,fontSize:11,color:'var(--text-3)'}}>({aluno.respParentesco})</span>}
+                  </span>
+                </div>
+              )}
+              {aluno.respTelefone && (
+                <div className="detail-row">
+                  <span className="detail-key">Telefone</span>
+                  <span className="detail-val" style={{display:'flex',alignItems:'center',gap:8}}>
+                    {aluno.respTelefone}
+                    <button
+                      className="btn btn-ghost btn-xs"
+                      style={{color:'#25d366',padding:'2px 6px'}}
+                      onClick={()=>window.electronAPI?.whatsappAbrir(aluno.respTelefone,`Olá${aluno.respNome?' '+aluno.respNome:''}! Entramos em contato sobre o aluno ${aluno.nome}.`)}
+                    >
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+                      </svg>
+                      WA
+                    </button>
+                  </span>
+                </div>
+              )}
+              {aluno.respEmail && (
+                <div className="detail-row">
+                  <span className="detail-key">E-mail</span>
+                  <span className="detail-val">{aluno.respEmail}</span>
+                </div>
+              )}
+            </div>
+          )}
         </div>
         <div>
           <div style={{fontFamily:"'Syne',sans-serif",fontSize:13,fontWeight:700,color:'var(--text-1)',marginBottom:12}}>
@@ -216,8 +258,8 @@ export default function Alunos() {
           <input placeholder="Buscar nome, e-mail, idioma..." value={search} onChange={e=>{setSearch(e.target.value);setPage(1)}}/>
           {search && <button style={{background:'none',border:'none',cursor:'pointer',color:'var(--text-3)'}} onClick={()=>{setSearch('');setPage(1)}}><X size={13}/></button>}
         </div>
-        <select className="select" style={{width:130}} value={fStatus} onChange={e=>{setFStatus(e.target.value);setPage(1)}}>
-          <option>Todos</option><option>Ativo</option><option>Inativo</option><option>Trancado</option>
+        <select className="select" style={{width:150}} value={fStatus} onChange={e=>{setFStatus(e.target.value);setPage(1)}}>
+          <option>Todos</option><option>Ativo</option><option>Inativo</option><option>Trancado</option><option>Lista de Espera</option>
         </select>
         <select className="select" style={{width:140}} value={fTurma} onChange={e=>{setFTurma(e.target.value);setPage(1)}}>
           {idiomas.map(i=><option key={i}>{i}</option>)}
@@ -233,7 +275,11 @@ export default function Alunos() {
       <div className="summary-strip">
         <div className="ss-item"><UserCheck size={13} style={{color:'var(--accent)'}}/> Ativos: <strong>{alunos.filter(a=>a.status==='Ativo').length}</strong></div>
         <div className="ss-divider"/>
-        <div className="ss-item"><UserX size={13}/> Inativos: <strong>{alunos.filter(a=>a.status!=='Ativo').length}</strong></div>
+        <div className="ss-item"><UserX size={13}/> Inativos: <strong>{alunos.filter(a=>a.status==='Inativo'||a.status==='Trancado').length}</strong></div>
+        <div className="ss-divider"/>
+        <div className="ss-item" style={{cursor:'pointer'}} onClick={()=>{setFStatus('Lista de Espera');setPage(1)}}>
+          <AlertCircle size={13} style={{color:'var(--yellow)'}}/> Espera: <strong style={{color:'var(--yellow)'}}>{alunos.filter(a=>a.status==='Lista de Espera').length}</strong>
+        </div>
         <div className="ss-divider"/>
         <div className="ss-item"><AlertCircle size={13} style={{color:'var(--red)'}}/> Inadimplentes: <strong style={{color:'var(--red)'}}>{pagamentos.filter(p=>p.mes===mesAtualDinamico()&&p.status==='Atrasado').length}</strong></div>
         <div style={{marginLeft:'auto'}} className="ss-item">Receita potencial: <strong style={{color:'var(--accent)'}}>{formatBRL(totalMensalidade)}/mês</strong></div>
@@ -284,8 +330,10 @@ export default function Alunos() {
                         </td>
                         <td>
                           {a.status==='Ativo'
-                            ? <span className="badge bg-gray">Ativo</span>
-                            : <span className="badge bg-gray" style={{opacity:.6}}>{a.status}</span>}
+                            ? <span className="badge bg-green"><span className="bdot"/>Ativo</span>
+                            : a.status==='Lista de Espera'
+                              ? <span className="badge bg-yellow"><span className="bdot"/>Espera</span>
+                              : <span className="badge bg-gray" style={{opacity:.6}}>{a.status}</span>}
                         </td>
                         <td className="td-muted">{formatDate(a.dataMatricula)}</td>
                         <td>

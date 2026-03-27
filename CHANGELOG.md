@@ -4,6 +4,38 @@ Formato: [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/) · [SemVer]
 
 ---
 
+## [5.11.0] — 2026-03
+
+### Adicionado
+- **Módulo Estoque e Material Didático** — CRUD completo de itens (livros, apostilas, uniformes, equipamentos), movimentações (entrada/saída/ajuste de inventário) com histórico inline, alertas de estoque mínimo e KPIs (total de itens, itens críticos, valor em estoque)
+- **Módulo Fluxo de Caixa** — lançamentos manuais de entradas e saídas por categoria, gráfico mensal de barras empilhadas (Chart.js), resumo por categoria, CRUD completo com SQLite
+- **Módulo Reserva de Salas** — gestão de espaços físicos com capacidade e recursos, reservas com detecção automática de conflito de horário, calendário semanal e integração com turmas/professores
+- **Módulo Notas / Ata de Resultados** — grid inline editável por turma e período letivo, cálculo automático de média e conceito (A–E), exportação de ata em PDF
+- **Grade Visual de Horários** — grade semanal com cores por idioma, parsing automático de texto livre (ex: "Seg/Qua 18h"), barra de ocupação por turma
+- **Carga Horária** — relatório de horas ministradas por professor com detalhamento por turma e exportação CSV
+- **Inadimplentes** — listagem filtrada por dias de atraso, envio de cobrança em lote via módulo Recados e WhatsApp
+- **Cancelamento/reposição de aulas** — checkbox na chamada para cancelar aula com motivo, agendamento de reposição vinculada bidirecionalmente, badges visuais na lista de aulas
+
+### Corrigido
+- **Modal.jsx** — `Modal` e `ConfirmModal` agora usam `createPortal(…, document.body)`, corrigindo posicionamento quebrado pelo zoom CSS global do app (afetava todos os modais de confirmação/deleção)
+- **Notas.jsx** — removido import `createPortal` não utilizado
+
+### Infraestrutura
+- Novas tabelas SQLite: `fluxo_caixa`, `salas`, `reservas_sala`, `notas`, `estoque_itens`, `estoque_movimentos` — todas com migration automática no startup
+- Novos IPC handlers em `main.js` e métodos expostos em `preload.js` para os módulos v5.8–v5.11
+- `.gitignore` atualizado: adicionado `*.7z`
+
+---
+
+## [5.5.5] — 2025-03
+
+### Corrigido
+- **Sidebar footer invisível no `.exe`** — investigação via DevTools do Electron revelou que o `sidebar-nav` (`flex:1`, `overflow-y:auto`) criava um stacking context que cobria o footer mesmo com `margin-top:auto`. Solução definitiva: `position:fixed`, `bottom:0`, `left:0`, `width:var(--sidebar-w)`, `zIndex:9999` e `background:var(--bg-side)` no footer; `padding-bottom:82px` no nav para o último item não ficar escondido
+- **Sidebar some com DPI scaling alto no Windows** — breakpoint `@media (max-width: 860px)` causava `display:none` na sidebar em monitores com DPI 125%/150% (janela 1024px físicos = ~682px CSS). Reduzido para `600px`
+- **Sidebar altura inconsistente dev vs .exe** — adicionado `height:100%` e `overflow:hidden` na `.sidebar`
+
+---
+
 ## [5.5.4-hotfix] — 2025-03
 
 ### Corrigido

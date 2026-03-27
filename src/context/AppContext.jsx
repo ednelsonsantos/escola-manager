@@ -123,7 +123,7 @@ const SEED_EVENTOS = [
 const DEFAULT_SETTINGS = {
   escola: { nome: 'Escola de Idiomas', cnpj: '', telefone: '', email: '', endereco: '', cidade: '' },
   financeiro: { multaAtraso: 10, jurosAtraso: 2, descontoAntecipacao: 5, moeda: 'BRL', pixChave: '', pixTipo: 'email', pixQrCode: '' },
-  sistema: { idioma: 'pt-BR', notificacoes: true, backupAuto: false },
+  sistema: { idioma: 'pt-BR', notificacoes: true, backupAuto: false, migradoSQLite: false },
   aparencia: { tema: 'dark', accentColor: '#63dcaa', fontSize: 'normal' },
 }
 
@@ -194,15 +194,41 @@ export function AppProvider({ children, user = null, onLogout = null }) {
       if (!backupAtivo) { api.backupSkip(); return }
 
       try {
+        const migrado = (() => {
+          try { return JSON.parse(localStorage.getItem('em_settings') || '{}')?.sistema?.migradoSQLite } catch { return false }
+        })()
+
+        // Se migrado, busca professores/turmas/alunos do SQLite para garantir
+        // que o backup contenha os dados mais recentes (escritos via IPC)
+        let professoresBackup = JSON.parse(localStorage.getItem('em_profs')  || '[]')
+        let turmasBackup      = JSON.parse(localStorage.getItem('em_turmas') || '[]')
+        let alunosBackup      = JSON.parse(localStorage.getItem('em_alunos') || '[]')
+
+        if (migrado && api.professoresListar) {
+          try {
+            const [profs, turms, aluns] = await Promise.all([
+              api.professoresListar({}),
+              api.turmasListar({}),
+              api.alunosListar({}),
+            ])
+            if (profs?.length) professoresBackup = profs
+            if (turms?.length) turmasBackup      = turms
+            if (aluns?.length) alunosBackup      = aluns
+          } catch (e) {
+            console.warn('[BackupAuto] Fallback para localStorage:', e.message)
+          }
+        }
+
         const dados = {
-          alunos:      JSON.parse(localStorage.getItem('em_alunos')   || '[]'),
-          turmas:      JSON.parse(localStorage.getItem('em_turmas')   || '[]'),
-          professores: JSON.parse(localStorage.getItem('em_profs')    || '[]'),
+          alunos:      alunosBackup,
+          turmas:      turmasBackup,
+          professores: professoresBackup,
           pagamentos:  JSON.parse(localStorage.getItem('em_pags')     || '[]'),
           eventos:     JSON.parse(localStorage.getItem('em_eventos')  || '[]'),
           settings:    JSON.parse(localStorage.getItem('em_settings') || '{}'),
           exportadoEm: new Date().toISOString(),
-          versao:      '5.5.2',
+          versao:      '5.7.0',
+          migradoSQLite: migrado || false,
         }
         const json = JSON.stringify(dados, null, 2)
         await api.backupSalvar(json)
@@ -216,48 +242,159 @@ export function AppProvider({ children, user = null, onLogout = null }) {
     api.onBeforeClose(handleBeforeClose)
   }, [])
 
+  // ── Carrega dados do SQLite quando migradoSQLite=true ──────────────────────
+  // Roda uma vez no mount e sempre que o flag mudar (ex: logo após a migração).
+  // Não toca em pagamentos nem eventos — esses ainda vivem no localStorage.
+  useEffect(() => {
+    const migrado = settings?.sistema?.migradoSQLite
+    if (!migrado) return
+    const api = window.electronAPI
+    if (!api) return
+
+    async function carregarDoSQLite() {
+      try {
+        const [profs, turms, aluns] = await Promise.all([
+          api.professoresListar({}),
+          api.turmasListar({}),
+          api.alunosListar({}),
+        ])
+        // Normaliza campo professorId: turmas_db usa professor_id internamente,
+        // mas o JOIN já devolve professor_nome — o frontend usa professorId
+        const turmasNorm = turms.map(t => ({
+          ...t,
+          professorId: t.professor_id ?? t.professorId ?? null,
+        }))
+        setProfRaw(profs)
+        setTurmasRaw(turmasNorm)
+        setAlunosRaw(aluns)
+      } catch (e) {
+        console.error('[AppContext] Erro ao carregar SQLite:', e)
+      }
+    }
+
+    carregarDoSQLite()
+  }, [settings?.sistema?.migradoSQLite])
+
+  // Helper: monta req de auditoria a partir da sessão atual
+  function getReq() {
+    try {
+      const u = JSON.parse(sessionStorage.getItem('em_user_v5') || '{}')
+      return { userId: u.id || null, userLogin: u.login || 'sistema' }
+    } catch { return {} }
+  }
   // ── ALUNOS CRUD ──
-  const addAluno = (data) => {
-    const list = [...alunos, { ...data, id: newId(alunos) }]
-    setAlunos(list); showToast('Aluno cadastrado com sucesso!'); registrarLog('alunos','criar',data.nome,`Aluno cadastrado: ${data.nome}`)
+  // Quando migradoSQLite=true, escritas vão para o SQLite e atualizam o estado
+  // local imediatamente (optimistic update) para a UI não piscar.
+  const addAluno = async (data) => {
+    if (settings?.sistema?.migradoSQLite) {
+      const res = await window.electronAPI?.alunosCriar(data, getReq())
+      if (!res?.ok) { showToast(res?.erro || 'Erro ao cadastrar aluno.', 'error'); return }
+      const novo = await window.electronAPI?.alunosGet(res.id)
+      if (novo) setAlunosRaw(v => [...v, novo])
+      showToast('Aluno cadastrado com sucesso!')
+      registrarLog('alunos', 'criar', data.nome, `Aluno cadastrado: ${data.nome}`)
+    } else {
+      const list = [...alunos, { ...data, id: newId(alunos) }]
+      setAlunos(list); showToast('Aluno cadastrado com sucesso!')
+      registrarLog('alunos', 'criar', data.nome, `Aluno cadastrado: ${data.nome}`)
+    }
   }
-  const updateAluno = (id, data) => {
-    setAlunos(alunos.map(a => a.id === id ? { ...a, ...data } : a))
-    showToast('Aluno atualizado!')
-    registrarLog('alunos','editar',data.nome||String(id),`Aluno editado: ID ${id}`)
+  const updateAluno = async (id, data) => {
+    if (settings?.sistema?.migradoSQLite) {
+      const res = await window.electronAPI?.alunosEditar(id, data, getReq())
+      if (!res?.ok) { showToast(res?.erro || 'Erro ao atualizar aluno.', 'error'); return }
+      setAlunosRaw(v => v.map(a => a.id === id ? { ...a, ...data } : a))
+      showToast('Aluno atualizado!')
+    } else {
+      setAlunos(alunos.map(a => a.id === id ? { ...a, ...data } : a))
+      showToast('Aluno atualizado!')
+      registrarLog('alunos', 'editar', data.nome || String(id), `Aluno editado: ID ${id}`)
+    }
   }
-  const deleteAluno = (id) => {
-    setAlunos(alunos.filter(a => a.id !== id))
-    showToast('Aluno removido.', 'info')
-    registrarLog('alunos','excluir',String(id),`Aluno ID ${id} removido`,'aviso')
+  const deleteAluno = async (id) => {
+    if (settings?.sistema?.migradoSQLite) {
+      const res = await window.electronAPI?.alunosDeletar(id, getReq())
+      if (!res?.ok) { showToast(res?.erro || 'Erro ao remover aluno.', 'error'); return }
+      setAlunosRaw(v => v.filter(a => a.id !== id))
+      showToast('Aluno removido.', 'info')
+    } else {
+      setAlunos(alunos.filter(a => a.id !== id))
+      showToast('Aluno removido.', 'info')
+      registrarLog('alunos', 'excluir', String(id), `Aluno ID ${id} removido`, 'aviso')
+    }
   }
 
   // ── TURMAS CRUD ──
-  const addTurma = (data) => {
-    const list = [...turmas, { ...data, id: newId(turmas) }]
-    setTurmas(list); showToast('Turma criada!')
+  const addTurma = async (data) => {
+    if (settings?.sistema?.migradoSQLite) {
+      const res = await window.electronAPI?.turmasCriar(data, getReq())
+      if (!res?.ok) { showToast(res?.erro || 'Erro ao criar turma.', 'error'); return }
+      const turms = await window.electronAPI?.turmasListar({})
+      if (turms) setTurmasRaw(turms.map(t => ({ ...t, professorId: t.professor_id ?? t.professorId ?? null })))
+      showToast('Turma criada!')
+    } else {
+      const list = [...turmas, { ...data, id: newId(turmas) }]
+      setTurmas(list); showToast('Turma criada!')
+    }
   }
-  const updateTurma = (id, data) => {
-    setTurmas(turmas.map(t => t.id === id ? { ...t, ...data } : t))
-    showToast('Turma atualizada!')
+  const updateTurma = async (id, data) => {
+    if (settings?.sistema?.migradoSQLite) {
+      const res = await window.electronAPI?.turmasEditar(id, data, getReq())
+      if (!res?.ok) { showToast(res?.erro || 'Erro ao atualizar turma.', 'error'); return }
+      const turms = await window.electronAPI?.turmasListar({})
+      if (turms) setTurmasRaw(turms.map(t => ({ ...t, professorId: t.professor_id ?? t.professorId ?? null })))
+      showToast('Turma atualizada!')
+    } else {
+      setTurmas(turmas.map(t => t.id === id ? { ...t, ...data } : t))
+      showToast('Turma atualizada!')
+    }
   }
-  const deleteTurma = (id) => {
-    setTurmas(turmas.filter(t => t.id !== id))
-    showToast('Turma removida.', 'info')
+  const deleteTurma = async (id) => {
+    if (settings?.sistema?.migradoSQLite) {
+      const res = await window.electronAPI?.turmasDeletar(id, getReq())
+      if (!res?.ok) { showToast(res?.erro || 'Erro ao remover turma.', 'error'); return }
+      setTurmasRaw(v => v.filter(t => t.id !== id))
+      showToast('Turma removida.', 'info')
+    } else {
+      setTurmas(turmas.filter(t => t.id !== id))
+      showToast('Turma removida.', 'info')
+    }
   }
 
   // ── PROFESSORES CRUD ──
-  const addProfessor = (data) => {
-    const list = [...professores, { ...data, id: newId(professores) }]
-    setProfessores(list); showToast('Professor cadastrado!')
+  const addProfessor = async (data) => {
+    if (settings?.sistema?.migradoSQLite) {
+      const res = await window.electronAPI?.professoresCriar(data, getReq())
+      if (!res?.ok) { showToast(res?.erro || 'Erro ao cadastrar professor.', 'error'); return }
+      const profs = await window.electronAPI?.professoresListar({})
+      if (profs) setProfRaw(profs)
+      showToast('Professor cadastrado!')
+    } else {
+      const list = [...professores, { ...data, id: newId(professores) }]
+      setProfessores(list); showToast('Professor cadastrado!')
+    }
   }
-  const updateProfessor = (id, data) => {
-    setProfessores(professores.map(p => p.id === id ? { ...p, ...data } : p))
-    showToast('Professor atualizado!')
+  const updateProfessor = async (id, data) => {
+    if (settings?.sistema?.migradoSQLite) {
+      const res = await window.electronAPI?.professoresEditar(id, data, getReq())
+      if (!res?.ok) { showToast(res?.erro || 'Erro ao atualizar professor.', 'error'); return }
+      setProfRaw(v => v.map(p => p.id === id ? { ...p, ...data } : p))
+      showToast('Professor atualizado!')
+    } else {
+      setProfessores(professores.map(p => p.id === id ? { ...p, ...data } : p))
+      showToast('Professor atualizado!')
+    }
   }
-  const deleteProfessor = (id) => {
-    setProfessores(professores.filter(p => p.id !== id))
-    showToast('Professor removido.', 'info')
+  const deleteProfessor = async (id) => {
+    if (settings?.sistema?.migradoSQLite) {
+      const res = await window.electronAPI?.professoresDeletar(id, getReq())
+      if (!res?.ok) { showToast(res?.erro || 'Erro ao remover professor.', 'error'); return }
+      setProfRaw(v => v.filter(p => p.id !== id))
+      showToast('Professor removido.', 'info')
+    } else {
+      setProfessores(professores.filter(p => p.id !== id))
+      showToast('Professor removido.', 'info')
+    }
   }
 
   // ── PAGAMENTOS ──
@@ -438,7 +575,15 @@ export function AppProvider({ children, user = null, onLogout = null }) {
     let dados, nome
     if (tipo === 'alunos')     { dados = alunos;     nome = 'alunos.json' }
     if (tipo === 'pagamentos') { dados = pagamentos; nome = 'pagamentos.json' }
-    if (tipo === 'completo')   { dados = { alunos, turmas, professores, pagamentos, eventos, settings }; nome = 'escola-backup.json' }
+    if (tipo === 'completo')   {
+      dados = {
+        alunos, turmas, professores, pagamentos, eventos, settings,
+        exportadoEm:   new Date().toISOString(),
+        versao:        '5.7.0',
+        migradoSQLite: settings?.sistema?.migradoSQLite || false,
+      }
+      nome = 'escola-backup.json'
+    }
     const blob = new Blob([JSON.stringify(dados, null, 2)], { type: 'application/json' })
     const url  = URL.createObjectURL(blob)
     const a    = document.createElement('a'); a.href = url; a.download = nome; a.click()

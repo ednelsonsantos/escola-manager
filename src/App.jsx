@@ -4,7 +4,7 @@ import {
   LayoutDashboard, Users, DollarSign, BookOpen, Settings,
   Bell, Sun, Moon, ChevronRight,
   BarChart2, Calendar, Search, X, CheckCircle, AlertCircle, Info,
-  AlertTriangle, Clock, LogOut, UserCog, Shield, ClipboardList
+  AlertTriangle, Clock, TrendingUp, LogOut, UserCog, Shield, ClipboardList, MessageSquare, LayoutGrid, DoorOpen, Package
 } from 'lucide-react'
 import { useApp, formatBRL, mesAtualDinamico } from './context/AppContext.jsx'
 import { useAuth }  from './context/AuthContext.jsx'
@@ -25,14 +25,29 @@ import EditarTurma      from './pages/EditarTurma.jsx'
 import EditarProfessor  from './pages/EditarProfessor.jsx'
 import EditarEvento     from './pages/EditarEvento.jsx'
 import Frequencia      from './pages/Frequencia.jsx'
+import Recados        from './pages/Recados/Recados.jsx'
+import GradeHorarios  from './pages/GradeHorarios.jsx'
+import Inadimplentes  from './pages/Inadimplentes.jsx'
+import CargaHoraria   from './pages/CargaHoraria.jsx'
+import FluxoCaixa     from './pages/FluxoCaixa.jsx'
+import ReservaSalas  from './pages/ReservaSalas.jsx'
+import Notas         from './pages/Notas.jsx'
+import Estoque       from './pages/Estoque.jsx'
 import TitleBar     from './components/TitleBar.jsx'
 
 const NAV_ITEMS = [
   { label:'Dashboard',  icon:LayoutDashboard, path:'/',             perm:'dashboard'  },
   { label:'Alunos',     icon:Users,           path:'/alunos',       perm:'alunos'     },
-  { label:'Financeiro', icon:DollarSign,      path:'/financeiro',   perm:'financeiro' },
+  { label:'Financeiro',    icon:DollarSign,      path:'/financeiro',            perm:'financeiro' },
+  { label:'Fluxo de Caixa', icon:TrendingUp,      path:'/financeiro/fluxo-caixa', perm:'financeiro' },
   { label:'Cursos',     icon:BookOpen,        path:'/cursos',       perm:'cursos'     },
-  { label:'Frequência', icon:ClipboardList,   path:'/frequencia',   perm:'cursos'     },
+  { label:'Grade',         icon:LayoutGrid,      path:'/cursos/grade',          perm:'cursos'     },
+  { label:'Carga Horária', icon:Clock,           path:'/cursos/carga-horaria',  perm:'cursos'     },
+  { label:'Frequência',    icon:ClipboardList,   path:'/frequencia',            perm:'cursos'     },
+  { label:'Notas',         icon:BookOpen,        path:'/cursos/notas',          perm:'cursos'     },
+  { label:'Reserva de Salas', icon:DoorOpen,    path:'/agenda/salas',          perm:'agenda'     },
+  { label:'Estoque',          icon:Package,     path:'/estoque',               perm:'config'     },
+  { label:'Recados',    icon:MessageSquare,   path:'/recados',      perm:'dashboard'  },
   { label:'Relatórios', icon:BarChart2,       path:'/relatorios',   perm:'relatorios' },
   { label:'Agenda',     icon:Calendar,        path:'/agenda',       perm:'agenda'     },
 ]
@@ -41,14 +56,22 @@ const PAGE_META = {
   '/':             { title:'Dashboard',    sub:'Visão geral' },
   '/alunos':       { title:'Alunos',       sub:'Gestão de matrículas' },
   '/financeiro':   { title:'Financeiro',   sub:'Pagamentos e receitas' },
+  '/financeiro/inadimplentes': { title:'Inadimplentes', sub:'Alunos com pagamentos em atraso' },
+  '/financeiro/fluxo-caixa':  { title:'Fluxo de Caixa', sub:'Entradas e saídas financeiras' },
   '/cursos':       { title:'Cursos',       sub:'Turmas e professores' },
+  '/cursos/grade': { title:'Grade de Horários', sub:'Visualização semanal das turmas' },
+  '/cursos/carga-horaria': { title:'Carga Horária', sub:'Horas ministradas por professor' },
+  '/cursos/notas':         { title:'Notas e Resultados', sub:'Lançamento de notas e ata de resultados' },
   '/relatorios':   { title:'Relatórios',   sub:'Análise de dados' },
   '/agenda':       { title:'Agenda',       sub:'Eventos e calendário' },
+  '/agenda/salas': { title:'Reserva de Salas', sub:'Agenda e gestão de espaços' },
+  '/estoque':      { title:'Estoque',          sub:'Material didático e recursos' },
   '/configuracoes':{ title:'Configurações',sub:'Preferências do sistema' },
   '/usuarios':     { title:'Usuários',     sub:'Contas e permissões' },
   '/sobre':        { title:'Sobre',        sub:'Informações do sistema e licença' },
   '/auditlog':     { title:'Log de Auditoria', sub:'Histórico de ações do sistema' },
   '/frequencia':   { title:'Frequência',   sub:'Chamada e controle de presença' },
+  '/recados':      { title:'Recados',      sub:'Comunicados e mensagens' },
   '/alunos/novo':                  { title:'Novo Aluno',        sub:'Cadastrar novo aluno' },
   '/alunos/editar/:id':            { title:'Editar Aluno',      sub:'Alterar dados do aluno' },
   '/cursos/turmas/nova':           { title:'Nova Turma',        sub:'Criar nova turma' },
@@ -113,6 +136,13 @@ function Guarded({ perm: permKey, children }) {
   return permissao(permKey).podeVer ? children : <SemAcesso/>
 }
 
+// ── RecadosComUser — injeta o usuário do AuthContext no componente Recados ────
+// Necessário pois AppRoutes é React.memo e não recebe props do App()
+function RecadosComUser() {
+  const { user } = useAuth()
+  return <Recados usuarioAtual={user}/>
+}
+
 // ── AppRoutes — memoizado, só re-renderiza quando a rota muda ────────────────
 // React.memo sem props: re-renderiza apenas quando useLocation muda internamente
 // via react-router. Qualquer estado local de App (notifOpen, searchOpen, etc.)
@@ -137,6 +167,13 @@ const AppRoutes = React.memo(function AppRoutes() {
         <Route path="/cursos/professores/novo"        element={<Guarded perm="cursos"><EditarProfessor/></Guarded>}/>
         <Route path="/cursos/professores/editar/:id"  element={<Guarded perm="cursos"><EditarProfessor/></Guarded>}/>
         <Route path="/frequencia"                     element={<Guarded perm="cursos"><Frequencia/></Guarded>}/>
+        <Route path="/agenda/salas"                   element={<Guarded perm="agenda"><ReservaSalas/></Guarded>}/>
+        <Route path="/cursos/grade"                   element={<Guarded perm="cursos"><GradeHorarios/></Guarded>}/>
+        <Route path="/cursos/carga-horaria"           element={<Guarded perm="cursos"><CargaHoraria/></Guarded>}/>
+        <Route path="/cursos/notas"                   element={<Guarded perm="cursos"><Notas/></Guarded>}/>
+        <Route path="/financeiro/inadimplentes"       element={<Guarded perm="financeiro"><Inadimplentes/></Guarded>}/>
+        <Route path="/financeiro/fluxo-caixa"         element={<Guarded perm="financeiro"><FluxoCaixa/></Guarded>}/>
+        <Route path="/recados"                        element={<Guarded perm="dashboard"><RecadosComUser/></Guarded>}/>
         <Route path="/agenda/novo"                    element={<Guarded perm="agenda"><EditarEvento/></Guarded>}/>
         <Route path="/agenda/editar/:id"              element={<Guarded perm="agenda"><EditarEvento/></Guarded>}/>
         <Route path="/usuarios/novo"                  element={<Guarded perm="usuarios"><EditarUsuario/></Guarded>}/>
@@ -144,6 +181,7 @@ const AppRoutes = React.memo(function AppRoutes() {
         <Route path="/perfis/novo"                    element={<Guarded perm="usuarios"><EditarPerfil/></Guarded>}/>
         <Route path="/perfis/editar/:id"              element={<Guarded perm="usuarios"><EditarPerfil/></Guarded>}/>
         <Route path="/auditlog"                       element={<Guarded perm="usuarios"><AuditLog/></Guarded>}/>
+        <Route path="/estoque"                        element={<Guarded perm="config"><Estoque/></Guarded>}/>
       </Routes>
     </div>
   )
@@ -170,6 +208,8 @@ export default function App() {
     || (loc.pathname.startsWith('/cursos/turmas/nova')           ? PAGE_META['/cursos/turmas/nova']             : null)
     || (loc.pathname.startsWith('/cursos/professores/editar/')   ? PAGE_META['/cursos/professores/editar/:id']  : null)
     || (loc.pathname.startsWith('/cursos/professores/novo')      ? PAGE_META['/cursos/professores/novo']        : null)
+    || (loc.pathname.startsWith('/cursos/grade')                 ? PAGE_META['/cursos/grade']                  : null)
+    || (loc.pathname.startsWith('/financeiro/inadimplentes')     ? PAGE_META['/financeiro/inadimplentes']      : null)
     || (loc.pathname.startsWith('/agenda/editar/')               ? PAGE_META['/agenda/editar/:id']              : null)
     || (loc.pathname.startsWith('/agenda/novo')                  ? PAGE_META['/agenda/novo']                    : null)
     || (loc.pathname.startsWith('/usuarios/editar/')             ? PAGE_META['/usuarios/editar/:id']            : null)
@@ -229,6 +269,10 @@ export default function App() {
   // Filtered nav based on permissions
   const navVisivel = NAV_ITEMS.filter(item => permissao(item.perm).podeVer)
 
+  const zoomAtual = settings?.aparencia?.fontSize === 'compacto' ? 0.88
+                  : settings?.aparencia?.fontSize === 'grande'   ? 1.10
+                  : 1
+
   return (
     <div className="app-shell" data-theme={tema} style={{
       ...(settings?.aparencia?.accentColor && settings.aparencia.accentColor !== '#63dcaa' ? {
@@ -236,14 +280,13 @@ export default function App() {
         '--accent-dim':  settings.aparencia.accentColor + '22',
         '--accent-glow': settings.aparencia.accentColor + '44',
       } : {}),
-      // zoom escala TUDO proporcionalmente (fontes, espaçamentos, ícones, bordas)
-      // funciona perfeitamente no Chromium/Electron mesmo com valores px no CSS
-      zoom: settings?.aparencia?.fontSize === 'compacto' ? 0.88
-          : settings?.aparencia?.fontSize === 'grande'   ? 1.10
-          : 1,  /* normal — padrão */
     }}>
-      {/* SIDEBAR */}
-      <aside className="sidebar">
+      {/* SIDEBAR — zoom compensado: sidebar não escala com o app-shell,
+           mas precisa da height corrigida para preencher a viewport visível */}
+      <aside className="sidebar" style={{
+        zoom: 1 / zoomAtual,
+        height: `calc(100vh * ${zoomAtual})`,
+      }}>
         <div className="sidebar-logo">
           {logoBase64
             ? <img src={logoBase64} alt="Logo" style={{height:32,maxWidth:80,objectFit:'contain'}}/>
@@ -255,7 +298,7 @@ export default function App() {
           </div>
         </div>
 
-        <nav className="sidebar-nav" style={{paddingBottom:'82px'}}>
+        <nav className="sidebar-nav">
           <div className="nav-label">Principal</div>
           {navVisivel.map(item=>(
             <button key={item.path} className={`nav-btn${loc.pathname===item.path?' active':''}`} onClick={()=>nav(item.path)}>
@@ -287,16 +330,8 @@ export default function App() {
           </button>
         </nav>
 
-        <div style={{
-          padding:'10px 12px',
-          borderTop:'1px solid var(--border)',
-          position:'fixed',
-          bottom:0,
-          left:0,
-          width:'var(--sidebar-w)',
-          zIndex:9999,
-          background:'var(--bg-side)',
-        }}>
+        {/* Rodapé do usuário */}
+        <div className="sidebar-footer">
           <div style={{
             display:'flex', alignItems:'center', gap:10,
             padding:'8px 10px', borderRadius:10,
@@ -346,7 +381,8 @@ export default function App() {
       </aside>
 
       {/* MAIN */}
-      <div className="main-area">
+      {/* MAIN — zoom aplicado aqui, não na sidebar */}
+      <div className="main-area" style={{ zoom: zoomAtual }}>
         <header className="topbar">
           <div>
             <div className="topbar-title">{meta.title}</div>
@@ -444,10 +480,10 @@ export default function App() {
                       icon={<AlertTriangle size={15} style={{color:'var(--red)'}}/>}
                       iconBg="var(--red-dim)"
                       title={`${inadimplentes.length} pagamento${inadimplentes.length > 1 ? 's' : ''} em atraso`}
-                      sub={`${formatBRL(inadimplentes.reduce((s,p)=>s+p.valor,0))} em aberto`}
+                      sub={`${formatBRL(inadimplentes.reduce((s,p)=>s+p.valor,0))} em aberto · Ver detalhes`}
                       onClick={() => {
                         setNotifOpen(false)
-                        if (loc.pathname !== '/financeiro') nav('/financeiro')
+                        nav('/financeiro/inadimplentes')
                       }}
                     />
                   )}

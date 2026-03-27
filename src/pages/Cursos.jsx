@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { Plus, Pencil, Trash2, Users, BookOpen, Search, X } from 'lucide-react'
+import { Plus, Pencil, Trash2, Users, BookOpen, Search, X, Clock, AlertTriangle, Phone } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useApp, formatBRL } from '../context/AppContext.jsx'
 import { ConfirmModal } from '../components/Modal.jsx'
@@ -23,11 +23,22 @@ export default function Cursos() {
     return !q || p.nome.toLowerCase().includes(q) || p.idioma.toLowerCase().includes(q)
   })
 
+  // ── Lista de Espera ──────────────────────────────────────────────────────────
+  const listaEspera = alunos.filter(a => {
+    const q = search.toLowerCase()
+    return a.status === 'Lista de Espera' &&
+      (!q || a.nome.toLowerCase().includes(q) || (a.telefone||'').includes(q) || (a.respNome||'').toLowerCase().includes(q))
+  })
+
   function alunosDaTurma(id) { return alunos.filter(a=>a.turmaId===id && a.status==='Ativo').length }
   function getProfNome(id)   { return professores.find(p=>p.id===id)?.nome || '—' }
 
   function delTurma() { deleteTurma(confirm.item.id); setConfirm(null) }
   function delProf()  { deleteProfessor(confirm.item.id); setConfirm(null) }
+
+  function abrirWhatsApp(tel, nome) {
+    window.electronAPI?.whatsappAbrir(tel, `Olá ${nome}! Temos uma vaga disponível. Entre em contato conosco.`)
+  }
 
   return (
     <div className="fade-up">
@@ -39,17 +50,28 @@ export default function Cursos() {
           <button className={`tab${tab==='professores'?' active':''}`} onClick={()=>{setTab('professores');setSearch('')}}>
             <Users size={13} style={{marginRight:5,verticalAlign:'middle'}}/>Professores ({professores.length})
           </button>
+          <button className={`tab${tab==='espera'?' active':''}`} onClick={()=>{setTab('espera');setSearch('')}}>
+            <Clock size={13} style={{marginRight:5,verticalAlign:'middle'}}/>
+            Lista de Espera
+            {listaEspera.length > 0 && (
+              <span style={{
+                marginLeft:5, fontSize:10, fontWeight:700,
+                background:'var(--yellow)', color:'#7a4f00',
+                padding:'1px 6px', borderRadius:20,
+              }}>{alunos.filter(a=>a.status==='Lista de Espera').length}</span>
+            )}
+          </button>
         </div>
 
         <div className="search-wrap" style={{flex:1,maxWidth:280}}>
-          <Search/><input placeholder={`Buscar ${tab}...`} value={search} onChange={e=>setSearch(e.target.value)}/>
+          <Search/><input placeholder={`Buscar ${tab==='espera'?'lista de espera':tab}...`} value={search} onChange={e=>setSearch(e.target.value)}/>
           {search&&<button style={{background:'none',border:'none',cursor:'pointer',color:'var(--text-3)'}} onClick={()=>setSearch('')}><X size={12}/></button>}
         </div>
 
         <div className="toolbar-right">
-          {tab==='turmas'
-            ? <button className="btn btn-primary btn-sm" onClick={()=>nav('/cursos/turmas/nova')}><Plus size={14}/> Nova Turma</button>
-            : <button className="btn btn-primary btn-sm" onClick={()=>nav('/cursos/professores/novo')}><Plus size={14}/> Novo Professor</button>}
+          {tab==='turmas'  && <button className="btn btn-primary btn-sm" onClick={()=>nav('/cursos/turmas/nova')}><Plus size={14}/> Nova Turma</button>}
+          {tab==='professores' && <button className="btn btn-primary btn-sm" onClick={()=>nav('/cursos/professores/novo')}><Plus size={14}/> Novo Professor</button>}
+          {tab==='espera'  && <button className="btn btn-primary btn-sm" onClick={()=>nav('/alunos/novo')}><Plus size={14}/> Novo Aluno</button>}
         </div>
       </div>
 
@@ -63,6 +85,9 @@ export default function Cursos() {
               const ocup = Math.min(100, Math.round(matriculados/t.vagas*100))
               const cor  = CORES_IDIOMA[t.idioma] || CORES_IDIOMA.default
               const nivel_color = t.nivel==='Básico'?'bg-green':t.nivel==='Intermediário'?'bg-yellow':t.nivel==='Avançado'?'bg-red':'bg-blue'
+              const vagasLivres = t.vagas - matriculados
+              // Alunos na lista de espera que querem esta turma
+              const esperandoEssaTurma = alunos.filter(a => a.status==='Lista de Espera' && a.turmaId===t.id).length
               return (
                 <div key={t.id} className="curso-card">
                   <div className="curso-card-head">
@@ -82,6 +107,13 @@ export default function Cursos() {
                   <div style={{display:'flex',gap:8,alignItems:'center',marginBottom:10}}>
                     <span className="badge bg-blue" style={{fontSize:12}}>{t.codigo}</span>
                     {!t.ativa && <span className="badge bg-gray">Inativa</span>}
+                    {esperandoEssaTurma > 0 && (
+                      <span className="badge bg-yellow" style={{fontSize:10,cursor:'pointer'}} onClick={()=>{setTab('espera');setSearch('')}}
+                        title={`${esperandoEssaTurma} na lista de espera`}>
+                        <Clock size={9} style={{marginRight:3,verticalAlign:'middle'}}/>
+                        {esperandoEssaTurma} esperando
+                      </span>
+                    )}
                   </div>
 
                   <div style={{fontSize:12,color:'var(--text-2)',marginBottom:4}}>
@@ -94,7 +126,12 @@ export default function Cursos() {
                   <div className="curso-stats">
                     <div className="curso-stat"><span className="cs-label">Alunos</span><span className="cs-val">{matriculados}</span></div>
                     <div className="curso-stat"><span className="cs-label">Vagas</span><span className="cs-val">{t.vagas}</span></div>
-                    <div className="curso-stat"><span className="cs-label">Ocupação</span><span className="cs-val">{ocup}%</span></div>
+                    <div className="curso-stat">
+                      <span className="cs-label">Livres</span>
+                      <span className="cs-val" style={{color: vagasLivres===0?'var(--red)':vagasLivres<=2?'var(--yellow)':'inherit'}}>
+                        {vagasLivres}
+                      </span>
+                    </div>
                   </div>
 
                   <div className="ocupacao-bar" style={{marginTop:10}}>
@@ -149,6 +186,134 @@ export default function Cursos() {
                 </tbody>
               </table>
           }
+        </div>
+      )}
+
+      {/* LISTA DE ESPERA */}
+      {tab==='espera' && (
+        <div>
+          {listaEspera.length === 0 ? (
+            <div className="empty">
+              <Clock size={40}/>
+              <p>{search ? 'Nenhum resultado para a busca.' : 'Nenhum aluno na lista de espera.'}</p>
+            </div>
+          ) : (
+            <div className="tbl-wrap">
+              <table>
+                <thead><tr>
+                  <th>Aluno</th>
+                  <th>Turma desejada</th>
+                  <th>Responsável</th>
+                  <th>Contato</th>
+                  <th>Desde</th>
+                  <th style={{width:100}}>Ações</th>
+                </tr></thead>
+                <tbody>
+                  {listaEspera.map(a => {
+                    const turma    = turmas.find(t => t.id === a.turmaId)
+                    const cor      = CORES_IDIOMA[turma?.idioma] || CORES_IDIOMA.default
+                    const tel      = a.respTelefone || a.telefone
+                    const nomeContato = a.respNome || a.nome
+                    return (
+                      <tr key={a.id}>
+                        <td>
+                          <div style={{display:'flex',alignItems:'center',gap:9}}>
+                            <div style={{width:30,height:30,borderRadius:'50%',background:'var(--yellow)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:11,fontWeight:700,color:'#7a4f00',flexShrink:0,fontFamily:"'Syne',sans-serif"}}>
+                              {a.nome.split(' ').slice(0,2).map(x=>x[0]).join('')}
+                            </div>
+                            <div>
+                              <div style={{fontWeight:500,color:'var(--text-1)',fontSize:13}}>{a.nome}</div>
+                              <div style={{fontSize:11,color:'var(--text-3)'}}>{a.email||'—'}</div>
+                            </div>
+                          </div>
+                        </td>
+                        <td>
+                          {turma
+                            ? <div>
+                                <span className="badge" style={{background:cor+'22',color:cor,fontSize:11}}>{turma.codigo}</span>
+                                <div style={{fontSize:11,color:'var(--text-3)',marginTop:3}}>{turma.idioma} · {turma.nivel}</div>
+                              </div>
+                            : <span style={{color:'var(--text-3)',fontSize:12}}>Sem preferência</span>
+                          }
+                        </td>
+                        <td>
+                          {a.respNome
+                            ? <div>
+                                <div style={{fontSize:13,color:'var(--text-1)'}}>{a.respNome}</div>
+                                <div style={{fontSize:11,color:'var(--text-3)'}}>{a.respParentesco||'Responsável'}</div>
+                              </div>
+                            : <span style={{color:'var(--text-3)',fontSize:12}}>—</span>
+                          }
+                        </td>
+                        <td>
+                          {tel
+                            ? <div style={{display:'flex',alignItems:'center',gap:6}}>
+                                <span style={{fontSize:12,color:'var(--text-2)'}}>{tel}</span>
+                                <button
+                                  className="btn btn-ghost btn-xs"
+                                  style={{color:'#25d366',padding:'2px 6px'}}
+                                  onClick={()=>abrirWhatsApp(tel, nomeContato)}
+                                  title="Chamar via WhatsApp"
+                                >
+                                  <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+                                  </svg>
+                                </button>
+                              </div>
+                            : <span style={{color:'var(--text-3)',fontSize:12}}>—</span>
+                          }
+                        </td>
+                        <td style={{fontSize:12,color:'var(--text-3)'}}>
+                          {a.dataMatricula ? new Date(a.dataMatricula).toLocaleDateString('pt-BR') : '—'}
+                        </td>
+                        <td>
+                          <div style={{display:'flex',gap:4}}>
+                            <button className="btn btn-ghost btn-xs" title="Editar aluno" onClick={()=>nav(`/alunos/editar/${a.id}`)}><Pencil size={12}/></button>
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {/* Resumo por turma com vagas */}
+          {!search && listaEspera.length > 0 && (() => {
+            const porTurma = {}
+            listaEspera.forEach(a => {
+              const k = a.turmaId || 0
+              porTurma[k] = (porTurma[k] || 0) + 1
+            })
+            const turmasComEspera = Object.entries(porTurma).map(([tid, qtd]) => ({
+              turma: turmas.find(t => t.id === Number(tid)),
+              qtd,
+              vagasLivres: Math.max(0, (turmas.find(t => t.id === Number(tid))?.vagas || 0) - alunosDaTurma(Number(tid))),
+            })).filter(x => x.turma)
+
+            if (!turmasComEspera.length) return null
+            return (
+              <div style={{marginTop:16,display:'flex',flexWrap:'wrap',gap:10}}>
+                {turmasComEspera.map(({turma, qtd, vagasLivres}) => {
+                  const cor = CORES_IDIOMA[turma.idioma] || CORES_IDIOMA.default
+                  return (
+                    <div key={turma.id} style={{
+                      padding:'10px 14px', borderRadius:10,
+                      background:'var(--bg-card)', border:'1px solid var(--border)',
+                      fontSize:12, minWidth:160,
+                    }}>
+                      <div style={{fontWeight:600,color:cor,marginBottom:4}}>{turma.codigo}</div>
+                      <div style={{color:'var(--text-2)'}}>{qtd} aguardando</div>
+                      <div style={{color: vagasLivres===0?'var(--red)':'var(--accent)', marginTop:2}}>
+                        {vagasLivres===0 ? '⚠ Sem vagas' : `${vagasLivres} vaga(s) livre(s)`}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )
+          })()}
         </div>
       )}
 

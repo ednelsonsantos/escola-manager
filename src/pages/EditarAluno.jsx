@@ -8,7 +8,7 @@ import { useNavigate, useParams }      from 'react-router-dom'
 import {
   ArrowLeft, Save, AlertCircle, User,
   Mail, Phone, Calendar, BookOpen, DollarSign,
-  FileText, UserCheck
+  FileText, UserCheck, Users
 } from 'lucide-react'
 import { useApp, formatBRL, formatDate } from '../context/AppContext.jsx'
 
@@ -18,6 +18,7 @@ const EMPTY_FORM = {
   status:'Ativo', dataNasc:'',
   dataMatricula: new Date().toISOString().split('T')[0],
   obs:'',
+  respNome:'', respTelefone:'', respEmail:'', respParentesco:'',
 }
 
 function FieldError({ msg }) {
@@ -74,7 +75,39 @@ export default function EditarAluno() {
     const e = validar()
     if (Object.keys(e).length) { setErros(e); return }
     setSalvando(true)
+
     const dados = { ...form, mensalidade: Number(form.mensalidade) }
+
+    if (!isNovo) {
+      const original = alunos.find(a => String(a.id) === String(id))
+
+      // ── Detecta mudança de turma ─────────────────────────────────────────
+      // Grava turmaAnteriorId e dataRematricula apenas quando a turma realmente
+      // mudou para uma turma diferente (não limpeza de campo)
+      const mudouTurma =
+        original &&
+        form.turmaId &&
+        String(original.turmaId) !== String(form.turmaId)
+
+      if (mudouTurma) {
+        dados.turmaAnteriorId = original.turmaId
+        dados.dataRematricula = new Date().toISOString().split('T')[0]
+      }
+
+      // ── Detecta reativação de status ─────────────────────────────────────
+      // Grava dataReativacao quando o aluno volta para Ativo vindo de status
+      // inativo (Inativo, Trancado ou Lista de Espera)
+      const statusesInativos = ['Inativo', 'Trancado', 'Lista de Espera']
+      const reativado =
+        original &&
+        statusesInativos.includes(original.status) &&
+        form.status === 'Ativo'
+
+      if (reativado) {
+        dados.dataReativacao = new Date().toISOString().split('T')[0]
+      }
+    }
+
     if (isNovo) addAluno(dados)
     else        updateAluno(Number(id), dados)
     navigate('/alunos')
@@ -89,7 +122,7 @@ export default function EditarAluno() {
     ? pagamentos.filter(p => p.alunoId === Number(id)).slice().reverse().slice(0, 6)
     : []
 
-  const STATUS_COLORS = { Ativo:'var(--accent)', Inativo:'var(--text-3)', Trancado:'var(--yellow)' }
+  const STATUS_COLORS = { Ativo:'var(--accent)', Inativo:'var(--text-3)', Trancado:'var(--yellow)', 'Lista de Espera':'var(--blue)' }
 
   return (
     <div className="fade-up" style={{ maxWidth: 900, margin: '0 auto' }}>
@@ -224,6 +257,7 @@ export default function EditarAluno() {
                   <option>Ativo</option>
                   <option>Inativo</option>
                   <option>Trancado</option>
+                  <option>Lista de Espera</option>
                 </select>
               </div>
 
@@ -250,6 +284,62 @@ export default function EditarAluno() {
               placeholder="Informações adicionais sobre o aluno (alergias, necessidades especiais, etc.)..."
               value={form.obs} onChange={e=>f('obs',e.target.value)}
               style={{minHeight:90}}/>
+          </div>
+
+          {/* Responsável */}
+          <div className="card" style={{padding:'20px 22px'}}>
+            <div style={{
+              fontFamily:"'Syne',sans-serif", fontSize:13, fontWeight:700,
+              color:'var(--text-1)', marginBottom:16, display:'flex', alignItems:'center', gap:7,
+            }}>
+              <Users size={14} style={{color:'var(--purple)'}}/>
+              Responsável
+            </div>
+            <div className="form-grid">
+              <div className="field form-full">
+                <FieldLabel icon={User} text="Nome do Responsável"/>
+                <input className="input" placeholder="Nome completo do responsável"
+                  value={form.respNome||''} onChange={e=>f('respNome',e.target.value)}/>
+              </div>
+              <div className="field">
+                <FieldLabel icon={Phone} text="Telefone do Responsável"/>
+                <div style={{display:'flex',gap:6}}>
+                  <input className="input" placeholder="(11) 99999-9999"
+                    value={form.respTelefone||''} onChange={e=>f('respTelefone',e.target.value)}/>
+                  {form.respTelefone && (
+                    <button
+                      type="button"
+                      className="btn btn-secondary btn-sm"
+                      style={{flexShrink:0,padding:'0 10px',color:'#25d366'}}
+                      title="Abrir WhatsApp"
+                      onClick={()=>window.electronAPI?.whatsappAbrir(form.respTelefone,`Olá${form.respNome?' '+form.respNome:''}! Entramos em contato da ${form.nome ? form.nome+' — ' : ''}Escola Manager.`)}
+                    >
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+                      </svg>
+                    </button>
+                  )}
+                </div>
+              </div>
+              <div className="field">
+                <FieldLabel icon={Mail} text="E-mail do Responsável"/>
+                <input className="input" type="email" placeholder="email@responsavel.com"
+                  value={form.respEmail||''} onChange={e=>f('respEmail',e.target.value)}/>
+              </div>
+              <div className="field">
+                <FieldLabel icon={UserCheck} text="Parentesco"/>
+                <select className="select" value={form.respParentesco||''}
+                  onChange={e=>f('respParentesco',e.target.value)}>
+                  <option value="">Selecionar</option>
+                  <option>Pai</option>
+                  <option>Mãe</option>
+                  <option>Avô/Avó</option>
+                  <option>Tio/Tia</option>
+                  <option>Responsável legal</option>
+                  <option>Outro</option>
+                </select>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -292,6 +382,8 @@ export default function EditarAluno() {
                 ['Horário',     turma?.horario || '—'],
                 ['Professor',   prof?.nome || '—'],
                 ['Matrícula',   form.dataMatricula ? formatDate(form.dataMatricula) : '—'],
+                ...(form.respNome ? [['Responsável', form.respNome]] : []),
+                ...(form.respTelefone ? [['Tel. Resp.', form.respTelefone]] : []),
               ].map(([k,v])=>(
                 <div key={k} style={{display:'flex',justifyContent:'space-between',fontSize:12}}>
                   <span style={{color:'var(--text-3)'}}>{k}</span>

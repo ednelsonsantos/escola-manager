@@ -12,11 +12,13 @@ import React, { useState, useEffect, useCallback } from 'react'
 import {
   BookOpen, Users, Plus, Check, X, Save, Trash2,
   BarChart2, ChevronLeft, Calendar, CheckCircle,
-  AlertCircle, RefreshCw, Pencil, FileDown
+  AlertCircle, RefreshCw, Pencil, FileDown, FileText,
+  Ban, RotateCcw, Link
 } from 'lucide-react'
 import { useApp, formatDate } from '../context/AppContext.jsx'
 import { gerarHTMLRelatorioFrequencia, gerarPDF } from '../utils/pdfUtils.js'
 import { ConfirmModal } from '../components/Modal.jsx'
+import { createPortal } from 'react-dom'
 
 const hoje = () => new Date().toISOString().split('T')[0]
 
@@ -91,9 +93,21 @@ export default function Frequencia() {
   const [salvando,     setSalvando]     = useState(false)
   const [novaAulaData, setNovaAulaData] = useState(hoje())
   const [novaAulaTit,  setNovaAulaTit]  = useState('')
+  const [novaAulaCont, setNovaAulaCont] = useState('')
+  const [conteudoAula,      setConteudoAula]      = useState('')  // conteúdo da aula em edição
+  const [profAusente,       setProfAusente]       = useState(false)
+  const [justificativaAus,  setJustificativaAus]  = useState('')
   const [showNovaAula, setShowNovaAula] = useState(false)
   const [confirmDel,   setConfirmDel]   = useState(null)
   const [stats,        setStats]        = useState(null)
+
+  // Cancelamento e reposição (v5.8)
+  const [aulaCancelada,      setAulaCancelada]      = useState(false)
+  const [motivoCancelamento, setMotivoCancelamento] = useState('')
+  const [showReposicao,      setShowReposicao]      = useState(false)
+  const [reposicaoData,      setReposicaoData]      = useState(hoje())
+  const [reposicaoTit,       setReposicaoTit]       = useState('')
+  const [salvandoReposicao,  setSalvandoReposicao]  = useState(false)
 
   const turma     = turmas.find(t => String(t.id) === String(turmaSel))
   const alunosDaTurma = alunos.filter(a => a.turmaId === Number(turmaSel) && a.status === 'Ativo')
@@ -102,38 +116,47 @@ export default function Frequencia() {
 
   // Carrega aulas quando turma muda
   const carregarAulas = useCallback(async () => {
-    if (!turmaSel || !api?.freqListarAulas) { setAulas([]); return }
+    const apiRef = window.electronAPI
+    if (!turmaSel || !apiRef?.freqListarAulas) { setAulas([]); return }
     setLoading(true)
-    const lista = await api.freqListarAulas({ turmaLsId: Number(turmaSel) })
+    const lista = await apiRef.freqListarAulas({ turmaLsId: Number(turmaSel) })
     setAulas(lista || [])
     setLoading(false)
-  }, [turmaSel, api])
+  }, [turmaSel])
 
   useEffect(() => { carregarAulas() }, [carregarAulas])
 
   // Quando seleciona uma aula, carrega presenças existentes
   async function selecionarAula(aula) {
     setAulaSel(aula)
+    setConteudoAula(aula.conteudo || '')
+    setProfAusente(!!aula.professor_ausente)
+    setJustificativaAus(aula.justificativa_ausencia || '')
+    setAulaCancelada(!!aula.cancelada)
+    setMotivoCancelamento(aula.motivo_cancelamento || '')
+    setShowReposicao(false)
     setLoading(true)
     const lista = await api?.freqGetPresencas(aula.id) || []
-    // Inicia com todos presentes se não há registro ainda
     const mapa = {}
     if (lista.length === 0) {
-      alunosDaTurma.forEach(a => { mapa[a.id] = true })
+      // Nenhum registro ainda — inicializa todos como presentes
+      alunosDaTurma.forEach(a => { mapa[String(a.id)] = true })
     } else {
-      lista.forEach(p => { mapa[p.aluno_ls_id] = p.presente === 1 })
+      // Carrega presenças salvas; alunos não registrados ficam como presentes
+      alunosDaTurma.forEach(a => { mapa[String(a.id)] = true })
+      lista.forEach(p => { mapa[String(p.aluno_ls_id)] = p.presente === 1 })
     }
     setPresencas(mapa)
     setLoading(false)
   }
 
   function togglePresenca(alunoId) {
-    setPresencas(p => ({ ...p, [alunoId]: !p[alunoId] }))
+    setPresencas(p => ({ ...p, [String(alunoId)]: !p[String(alunoId)] }))
   }
 
   function marcarTodos(valor) {
     const mapa = {}
-    alunosDaTurma.forEach(a => { mapa[a.id] = valor })
+    alunosDaTurma.forEach(a => { mapa[String(a.id)] = valor })
     setPresencas(mapa)
   }
 
@@ -144,10 +167,12 @@ export default function Frequencia() {
       turmaCodigo: turma?.codigo || '',
       data:        novaAulaData,
       titulo:      novaAulaTit.trim() || `Aula ${novaAulaData}`,
+      conteudo:    novaAulaCont.trim(),
     }, getReq())
     if (res?.ok) {
       setShowNovaAula(false)
       setNovaAulaTit('')
+      setNovaAulaCont('')
       await carregarAulas()
       // Abre automaticamente a aula recém-criada
       const novaLista = await api.freqListarAulas({ turmaLsId: Number(turmaSel) })
@@ -157,18 +182,79 @@ export default function Frequencia() {
     }
   }
 
+  const salvandoRef = React.useRef(false)
+  const [toastMsg, setToastMsg] = useState('')
+
+  function showToast(msg) {
+    setToastMsg(msg)
+    setTimeout(() => setToastMsg(''), 2500)
+  }
+
   async function salvarChamada() {
-    if (!aulaSel) return
+    if (!aulaSel || salvandoRef.current) return
+    salvandoRef.current = true
     setSalvando(true)
-    const lista = alunosDaTurma.map(a => ({
-      alunoLsId:  a.id,
-      alunoNome:  a.nome,
-      presente:   presencas[a.id] ?? true,
-      obs:        '',
-    }))
-    await api?.freqSalvarPresencas(aulaSel.id, lista, getReq())
-    setSalvando(false)
-    await carregarAulas()
+    try {
+      const aulaAlterada =
+        conteudoAula      !== (aulaSel.conteudo               || '') ||
+        profAusente       !== !!aulaSel.professor_ausente             ||
+        justificativaAus  !== (aulaSel.justificativa_ausencia  || '') ||
+        aulaCancelada     !== !!aulaSel.cancelada                     ||
+        motivoCancelamento !== (aulaSel.motivo_cancelamento    || '')
+
+      if (aulaAlterada) {
+        await api?.freqEditarAula(aulaSel.id, {
+          titulo:                 aulaSel.titulo || '',
+          data:                   aulaSel.data,
+          conteudo:               conteudoAula,
+          professor_ausente:      profAusente,
+          justificativa_ausencia: profAusente ? justificativaAus : '',
+          cancelada:              aulaCancelada,
+          motivo_cancelamento:    aulaCancelada ? motivoCancelamento : '',
+          aula_reposicao_id:      aulaSel.aula_reposicao_id ?? null,
+        }, getReq())
+        setAulaSel(a => ({
+          ...a,
+          conteudo:               conteudoAula,
+          professor_ausente:      profAusente ? 1 : 0,
+          justificativa_ausencia: profAusente ? justificativaAus : '',
+          cancelada:              aulaCancelada ? 1 : 0,
+          motivo_cancelamento:    aulaCancelada ? motivoCancelamento : '',
+        }))
+      }
+
+      // Recado automático para secretaria ao registrar ausência do professor
+      const ausenciaJaRegistrada = !!aulaSel.professor_ausente
+      if (profAusente && !ausenciaJaRegistrada) {
+        const req = getReq()
+        const u   = JSON.parse(sessionStorage.getItem('em_user_v5') || '{}')
+        await api?.freqRegistrarAusencia({
+          aulaId:        aulaSel.id,
+          turmaCodigo:   turma?.codigo || '',
+          dataAula:      aulaSel.data,
+          professorNome: u.nome || u.login || '',
+          justificativa: justificativaAus,
+        }, req)
+      }
+
+      const lista = alunosDaTurma.map(a => ({
+        alunoLsId:  a.id,
+        alunoNome:  a.nome,
+        presente:   presencas[String(a.id)] ?? true,
+        obs:        '',
+      }))
+      await api?.freqSalvarPresencas(aulaSel.id, lista, getReq())
+      await carregarAulas()
+      setAulaSel(null)
+      setPresencas({})
+      showToast('Chamada salva com sucesso!')
+    } catch (e) {
+      console.error('[Frequencia] salvarChamada:', e)
+      showToast('Erro ao salvar chamada.')
+    } finally {
+      salvandoRef.current = false
+      setSalvando(false)
+    }
   }
 
   async function deletarAula() {
@@ -176,6 +262,48 @@ export default function Frequencia() {
     setConfirmDel(null)
     if (aulaSel?.id === confirmDel.id) { setAulaSel(null); setPresencas({}) }
     carregarAulas()
+  }
+
+  // Cria aula de reposição vinculada à aula cancelada
+  async function agendarReposicao() {
+    if (!reposicaoData || !aulaSel) return
+    setSalvandoReposicao(true)
+    try {
+      const res = await api?.freqCriarAula({
+        turmaLsId:          Number(turmaSel),
+        turmaCodigo:        turma?.codigo || '',
+        data:               reposicaoData,
+        titulo:             reposicaoTit.trim() || `Reposição — ${formatDate(aulaSel.data)}`,
+        conteudo:           '',
+        cancelada:          0,
+        motivo_cancelamento:'',
+        aula_reposicao_id:  aulaSel.id,
+      }, getReq())
+
+      if (res?.ok) {
+        // Vincula o ID da reposição na aula cancelada
+        await api?.freqEditarAula(aulaSel.id, {
+          titulo:                 aulaSel.titulo || '',
+          data:                   aulaSel.data,
+          conteudo:               conteudoAula,
+          professor_ausente:      profAusente,
+          justificativa_ausencia: profAusente ? justificativaAus : '',
+          cancelada:              aulaCancelada,
+          motivo_cancelamento:    aulaCancelada ? motivoCancelamento : '',
+          aula_reposicao_id:      res.id,
+        }, getReq())
+
+        setShowReposicao(false)
+        setReposicaoTit('')
+        await carregarAulas()
+        showToast('Reposição agendada com sucesso!')
+      }
+    } catch (e) {
+      console.error('[Frequencia] agendarReposicao:', e)
+      showToast('Erro ao agendar reposição.')
+    } finally {
+      setSalvandoReposicao(false)
+    }
   }
 
   async function handlePDFFrequencia() {
@@ -284,10 +412,16 @@ export default function Frequencia() {
                   <input className="input" type="date" value={novaAulaData}
                     onChange={e => setNovaAulaData(e.target.value)}/>
                 </div>
-                <div className="field" style={{ marginBottom: 10 }}>
+                <div className="field" style={{ marginBottom: 8 }}>
                   <label style={{ fontSize: 11 }}>Título (opcional)</label>
                   <input className="input" placeholder={`Aula ${novaAulaData}`}
                     value={novaAulaTit} onChange={e => setNovaAulaTit(e.target.value)}/>
+                </div>
+                <div className="field" style={{ marginBottom: 10 }}>
+                  <label style={{ fontSize: 11 }}>Conteúdo ministrado (opcional)</label>
+                  <textarea className="textarea" placeholder="Ex: Revisão de verbos irregulares, diálogo em pares..."
+                    value={novaAulaCont} onChange={e => setNovaAulaCont(e.target.value)}
+                    style={{ minHeight: 64, fontSize: 12 }}/>
                 </div>
                 <div style={{ display: 'flex', gap: 6 }}>
                   <button className="btn btn-primary btn-sm" style={{ flex: 1, justifyContent: 'center' }} onClick={criarAula}>
@@ -340,6 +474,37 @@ export default function Frequencia() {
                     </div>
                     <div style={{ fontSize: 11, color: 'var(--text-3)' }}>
                       {formatDate(a.data)}
+                    </div>
+                    <div style={{ display:'flex', gap:4, marginTop:3, flexWrap:'wrap' }}>
+                      {!!a.cancelada && (
+                        <span style={{
+                          fontSize:9, fontWeight:700, letterSpacing:.4,
+                          padding:'1px 5px', borderRadius:3,
+                          background:'var(--red-dim)', color:'var(--red)',
+                          border:'1px solid var(--red)',
+                        }}>CANCELADA</span>
+                      )}
+                      {!!a.aula_reposicao_id && (
+                        <span style={{
+                          fontSize:9, fontWeight:700, letterSpacing:.4,
+                          padding:'1px 5px', borderRadius:3,
+                          background:'rgba(91,156,246,.12)', color:'var(--blue)',
+                          border:'1px solid var(--blue)',
+                        }}>REPOSIÇÃO AGEND.</span>
+                      )}
+                      {!!a.professor_ausente && (
+                        <span style={{
+                          fontSize:9, fontWeight:700, letterSpacing:.4,
+                          padding:'1px 5px', borderRadius:3,
+                          background:'rgba(245,197,66,.1)', color:'var(--yellow)',
+                          border:'1px solid var(--yellow)',
+                        }}>PROF. AUSENTE</span>
+                      )}
+                      {a.conteudo && !a.cancelada && (
+                        <span style={{ fontSize:11, color:'var(--text-3)', fontStyle:'italic', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', maxWidth:160 }}>
+                          {a.conteudo}
+                        </span>
+                      )}
                     </div>
                   </div>
                   <button
@@ -405,6 +570,193 @@ export default function Frequencia() {
                     </div>
                   </div>
 
+                  {/* Campo de conteúdo ministrado */}
+                  <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--border)' }}>
+                    <label style={{
+                      display: 'flex', alignItems: 'center', gap: 5,
+                      fontSize: 11, fontWeight: 600, color: 'var(--text-2)',
+                      textTransform: 'uppercase', letterSpacing: '.5px', marginBottom: 6,
+                    }}>
+                      <FileText size={12} style={{ color: 'var(--text-3)' }}/>
+                      Conteúdo ministrado
+                    </label>
+                    <textarea
+                      className="textarea"
+                      placeholder="Descreva o conteúdo trabalhado nesta aula (tópicos, atividades, materiais utilizados...)..."
+                      value={conteudoAula}
+                      onChange={e => setConteudoAula(e.target.value)}
+                      style={{ minHeight: 72, fontSize: 13 }}
+                    />
+                  </div>
+
+                  {/* Ausência do professor */}
+                  <div style={{
+                    marginTop: 10,
+                    padding: '10px 14px',
+                    borderRadius: 9,
+                    border: `1px solid ${profAusente ? 'var(--red)' : 'var(--border)'}`,
+                    background: profAusente ? 'var(--red-dim)' : 'var(--bg-hover)',
+                    transition: 'all .2s',
+                  }}>
+                    <label style={{
+                      display: 'flex', alignItems: 'center', gap: 8,
+                      cursor: 'pointer', userSelect: 'none',
+                    }}>
+                      <input
+                        type="checkbox"
+                        checked={profAusente}
+                        onChange={e => {
+                          setProfAusente(e.target.checked)
+                          if (!e.target.checked) setJustificativaAus('')
+                        }}
+                        style={{ accentColor: 'var(--red)', width: 15, height: 15, cursor: 'pointer' }}
+                      />
+                      <span style={{
+                        fontSize: 12, fontWeight: 600,
+                        color: profAusente ? 'var(--red)' : 'var(--text-2)',
+                        transition: 'color .2s',
+                      }}>
+                        Professor ausente nesta aula
+                      </span>
+                      {profAusente && aulaSel.professor_ausente ? (
+                        <span style={{
+                          marginLeft: 'auto', fontSize: 10, fontWeight: 600,
+                          color: 'var(--red)', background: 'var(--red-dim)',
+                          border: '1px solid var(--red)', borderRadius: 4, padding: '2px 6px',
+                        }}>
+                          Já notificado
+                        </span>
+                      ) : profAusente ? (
+                        <span style={{
+                          marginLeft: 'auto', fontSize: 10, fontWeight: 600,
+                          color: 'var(--yellow)', background: 'rgba(245,197,66,.12)',
+                          border: '1px solid var(--yellow)', borderRadius: 4, padding: '2px 6px',
+                        }}>
+                          Secretaria será notificada ao salvar
+                        </span>
+                      ) : null}
+                    </label>
+
+                    {profAusente && (
+                      <div style={{ marginTop: 8 }}>
+                        <textarea
+                          className="textarea"
+                          placeholder="Informe o motivo da ausência (opcional)..."
+                          value={justificativaAus}
+                          onChange={e => setJustificativaAus(e.target.value)}
+                          style={{ minHeight: 60, fontSize: 12, borderColor: 'var(--red)' }}
+                          autoFocus
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* ── Cancelamento de aula ── */}
+                  <div style={{
+                    marginTop: 10,
+                    padding: '10px 14px',
+                    borderRadius: 9,
+                    border: `1px solid ${aulaCancelada ? 'var(--red)' : 'var(--border)'}`,
+                    background: aulaCancelada ? 'var(--red-dim)' : 'var(--bg-hover)',
+                    transition: 'all .2s',
+                  }}>
+                    <label style={{ display:'flex', alignItems:'center', gap:8, cursor:'pointer', userSelect:'none' }}>
+                      <input
+                        type="checkbox"
+                        checked={aulaCancelada}
+                        onChange={e => {
+                          setAulaCancelada(e.target.checked)
+                          if (!e.target.checked) setMotivoCancelamento('')
+                        }}
+                        style={{ accentColor:'var(--red)', width:15, height:15, cursor:'pointer' }}
+                      />
+                      <Ban size={13} style={{ color: aulaCancelada ? 'var(--red)' : 'var(--text-3)' }}/>
+                      <span style={{ fontSize:12, fontWeight:600, color: aulaCancelada ? 'var(--red)' : 'var(--text-2)', transition:'color .2s' }}>
+                        Aula cancelada
+                      </span>
+                      {aulaCancelada && aulaSel.aula_reposicao_id && (
+                        <span style={{
+                          marginLeft:'auto', fontSize:10, fontWeight:600,
+                          color:'var(--blue)', background:'rgba(91,156,246,.12)',
+                          border:'1px solid var(--blue)', borderRadius:4, padding:'2px 6px',
+                          display:'flex', alignItems:'center', gap:4,
+                        }}>
+                          <Link size={9}/> Reposição vinculada
+                        </span>
+                      )}
+                    </label>
+
+                    {aulaCancelada && (
+                      <div style={{ marginTop:8 }}>
+                        <textarea
+                          className="textarea"
+                          placeholder="Motivo do cancelamento (opcional)..."
+                          value={motivoCancelamento}
+                          onChange={e => setMotivoCancelamento(e.target.value)}
+                          style={{ minHeight:56, fontSize:12, borderColor:'var(--red)' }}
+                        />
+                      </div>
+                    )}
+
+                    {/* Botão agendar reposição — só aparece quando aula está cancelada e não tem reposição ainda */}
+                    {aulaCancelada && !aulaSel.aula_reposicao_id && (
+                      <div style={{ marginTop:8 }}>
+                        {!showReposicao ? (
+                          <button
+                            className="btn btn-secondary btn-sm"
+                            style={{ fontSize:11 }}
+                            onClick={() => { setShowReposicao(true); setReposicaoData(hoje()) }}
+                          >
+                            <RotateCcw size={12}/> Agendar reposição
+                          </button>
+                        ) : (
+                          <div style={{
+                            padding:'12px', borderRadius:8,
+                            background:'var(--bg-card)', border:'1px solid var(--blue)',
+                          }}>
+                            <div style={{ fontSize:12, fontWeight:600, color:'var(--blue)', marginBottom:8, display:'flex', alignItems:'center', gap:5 }}>
+                              <RotateCcw size={12}/> Nova aula de reposição
+                            </div>
+                            <div className="field" style={{ marginBottom:8 }}>
+                              <label style={{ fontSize:11 }}>Data da reposição *</label>
+                              <input
+                                className="input" type="date"
+                                value={reposicaoData}
+                                onChange={e => setReposicaoData(e.target.value)}
+                              />
+                            </div>
+                            <div className="field" style={{ marginBottom:10 }}>
+                              <label style={{ fontSize:11 }}>Título (opcional)</label>
+                              <input
+                                className="input"
+                                placeholder={`Reposição — ${formatDate(aulaSel.data)}`}
+                                value={reposicaoTit}
+                                onChange={e => setReposicaoTit(e.target.value)}
+                              />
+                            </div>
+                            <div style={{ display:'flex', gap:6 }}>
+                              <button
+                                className="btn btn-primary btn-sm"
+                                style={{ flex:1, justifyContent:'center' }}
+                                onClick={agendarReposicao}
+                                disabled={salvandoReposicao}
+                              >
+                                {salvandoReposicao
+                                  ? <RefreshCw size={12} style={{ animation:'spin .7s linear infinite' }}/>
+                                  : <Check size={12}/>
+                                }
+                                {salvandoReposicao ? ' Salvando...' : ' Confirmar'}
+                              </button>
+                              <button className="btn btn-secondary btn-sm" onClick={() => setShowReposicao(false)}>
+                                <X size={12}/>
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
                   {/* Ações rápidas */}
                   <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
                     <button className="btn btn-secondary btn-sm" onClick={() => marcarTodos(true)}>
@@ -444,7 +796,7 @@ export default function Frequencia() {
                       <AlunoCard
                         key={a.id}
                         aluno={a}
-                        presente={presencas[a.id] ?? true}
+                        presente={presencas[String(a.id)] ?? true}
                         onToggle={() => togglePresenca(a.id)}
                       />
                     ))}
@@ -582,6 +934,17 @@ export default function Frequencia() {
           onClose={() => setConfirmDel(null)}
           danger
         />
+      )}
+
+      {/* ── TOAST ── */}
+      {toastMsg && (
+        <div className={`toast ${toastMsg.startsWith('Erro') ? 'toast-error' : 'toast-success'}`}>
+          {toastMsg.startsWith('Erro')
+            ? <X size={15}/>
+            : <Check size={15}/>
+          }
+          {toastMsg}
+        </div>
       )}
     </div>
   )

@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { X } from 'lucide-react'
 
 export default function Modal({ title, onClose, children, footer, size='', onSubmit }) {
@@ -8,7 +9,7 @@ export default function Modal({ title, onClose, children, footer, size='', onSub
     return () => window.removeEventListener('keydown', fn)
   }, [onClose])
 
-  return (
+  return createPortal(
     <div className="modal-overlay" onClick={e => { if(e.target === e.currentTarget) onClose() }}>
       <div className={`modal ${size}`} onClick={e => e.stopPropagation()}>
         <div className="modal-head">
@@ -18,12 +19,13 @@ export default function Modal({ title, onClose, children, footer, size='', onSub
         <div className="modal-body">{children}</div>
         {footer && <div className="modal-foot">{footer}</div>}
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
 
 export function ConfirmModal({ title, msg, onConfirm, onClose, danger=false }) {
-  return (
+  return createPortal(
     <div className="modal-overlay" onClick={e => { if(e.target===e.currentTarget) onClose() }}>
       <div className="modal" style={{width:'min(400px,92vw)'}}>
         <div className="modal-body" style={{textAlign:'center',paddingTop:28}}>
@@ -38,6 +40,7 @@ export function ConfirmModal({ title, msg, onConfirm, onClose, danger=false }) {
           <button className={`btn ${danger?'btn-danger':'btn-primary'}`} onClick={onConfirm}>Confirmar</button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }

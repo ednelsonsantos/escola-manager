@@ -197,12 +197,12 @@ export default function Dashboard() {
 
   // ── Chart config ──────────────────────────────────────────────────────────
   const isDark       = tema === 'dark'
-  const gridColor    = isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.05)'
-  const tickColor    = isDark ? '#555d78' : '#9aa4b8'
-  const tooltipBg    = isDark ? '#161a22' : '#ffffff'
-  const tooltipBorder= isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)'
-  const tooltipTitle = isDark ? '#edf0f9' : '#1a1e2c'
-  const tooltipBody  = isDark ? '#7f8ba4' : '#5a647d'
+  const gridColor    = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)'
+  const tickColor    = isDark ? '#b0bcd4' : '#374151'
+  const tooltipBg    = isDark ? '#13161f' : '#f8f9fc'
+  const tooltipBorder= isDark ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.10)'
+  const tooltipTitle = isDark ? '#edf0f9' : '#111827'
+  const tooltipBody  = isDark ? '#b0bcd4' : '#374151'
 
   const tooltipBase = {
     backgroundColor: tooltipBg, borderColor: tooltipBorder, borderWidth: 1,
