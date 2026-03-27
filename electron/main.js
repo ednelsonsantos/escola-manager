@@ -367,6 +367,12 @@ ipcMain.handle('estoque:movimentos',   (_, filtros)        => safe(() => db.list
 ipcMain.handle('estoque:movimentar',   (_, dados, req)     => safe(() => db.registrarMovimento(dados, req || {}), { ok: false }))
 ipcMain.handle('estoque:resumo',       ()                  => safe(() => db.resumoEstoque(), {}))
 
+// ── Certificados (v5.12) ─────────────────────────────────────────────────────
+ipcMain.handle('cert:listar',  (_, filtros)    => safe(() => db.listarCertificados(filtros || {}), []))
+ipcMain.handle('cert:criar',   (_, dados, req) => safe(() => db.criarCertificado(dados, req || {}), { ok: false }))
+ipcMain.handle('cert:deletar', (_, id, req)    => safe(() => db.deletarCertificado(id, req || {}), { ok: false }))
+ipcMain.handle('cert:resumo',  ()              => safe(() => db.resumoCertificados(), {}))
+
 // ── WhatsApp ──────────────────────────────────────────────────────────────────
 ipcMain.handle('whatsapp:abrir', (_, numero, mensagem) => {
   try {

@@ -4,6 +4,18 @@ Formato: [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/) · [SemVer]
 
 ---
 
+## [5.12.0] — 2026-03
+
+### Adicionado
+- **Módulo Certificados** — emissão individual e em lote de certificados de conclusão em PDF (A4 paisagem), template estilizado com bordas duplas (navy + gold), fontes Playfair Display + Lato, campos configuráveis (texto livre, assinaturas, local/data, carga horária), pré-visualização via iframe antes de imprimir, histórico de emissões com filtro por turma e período, KPIs (total emitidos, turmas atendidas, última emissão)
+
+### Infraestrutura
+- Nova tabela SQLite: `certificados` — com migration automática no startup
+- Novos IPC handlers: `cert:listar`, `cert:criar`, `cert:deletar`, `cert:resumo`
+- Novos métodos em `preload.js`: `certListar`, `certCriar`, `certDeletar`, `certResumo`
+
+---
+
 ## [5.11.0] — 2026-03
 
 ### Adicionado

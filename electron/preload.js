@@ -119,6 +119,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   estoqueMovimentar:  (dados, req)     => ipcRenderer.invoke('estoque:movimentar', dados, req),
   estoqueResumo:      ()               => ipcRenderer.invoke('estoque:resumo'),
 
+  // Certificados (v5.12)
+  certListar:  (filtros)    => ipcRenderer.invoke('cert:listar',  filtros),
+  certCriar:   (dados, req) => ipcRenderer.invoke('cert:criar',   dados, req),
+  certDeletar: (id, req)    => ipcRenderer.invoke('cert:deletar', id, req),
+  certResumo:  ()           => ipcRenderer.invoke('cert:resumo'),
+
   // WhatsApp — abre wa.me no navegador padrão com mensagem pré-preenchida
   whatsappAbrir: (numero, mensagem) => ipcRenderer.invoke('whatsapp:abrir', numero, mensagem),
 

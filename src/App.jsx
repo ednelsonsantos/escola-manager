@@ -4,7 +4,7 @@ import {
   LayoutDashboard, Users, DollarSign, BookOpen, Settings,
   Bell, Sun, Moon, ChevronRight,
   BarChart2, Calendar, Search, X, CheckCircle, AlertCircle, Info,
-  AlertTriangle, Clock, TrendingUp, LogOut, UserCog, Shield, ClipboardList, MessageSquare, LayoutGrid, DoorOpen, Package
+  AlertTriangle, Clock, TrendingUp, LogOut, UserCog, Shield, ClipboardList, MessageSquare, LayoutGrid, DoorOpen, Package, Award
 } from 'lucide-react'
 import { useApp, formatBRL, mesAtualDinamico } from './context/AppContext.jsx'
 import { useAuth }  from './context/AuthContext.jsx'
@@ -33,6 +33,7 @@ import FluxoCaixa     from './pages/FluxoCaixa.jsx'
 import ReservaSalas  from './pages/ReservaSalas.jsx'
 import Notas         from './pages/Notas.jsx'
 import Estoque       from './pages/Estoque.jsx'
+import Certificados  from './pages/Certificados.jsx'
 import TitleBar     from './components/TitleBar.jsx'
 
 const NAV_ITEMS = [
@@ -45,6 +46,7 @@ const NAV_ITEMS = [
   { label:'Carga Horária', icon:Clock,           path:'/cursos/carga-horaria',  perm:'cursos'     },
   { label:'Frequência',    icon:ClipboardList,   path:'/frequencia',            perm:'cursos'     },
   { label:'Notas',         icon:BookOpen,        path:'/cursos/notas',          perm:'cursos'     },
+  { label:'Certificados',  icon:Award,           path:'/cursos/certificados',   perm:'cursos'     },
   { label:'Reserva de Salas', icon:DoorOpen,    path:'/agenda/salas',          perm:'agenda'     },
   { label:'Estoque',          icon:Package,     path:'/estoque',               perm:'config'     },
   { label:'Recados',    icon:MessageSquare,   path:'/recados',      perm:'dashboard'  },
@@ -62,6 +64,7 @@ const PAGE_META = {
   '/cursos/grade': { title:'Grade de Horários', sub:'Visualização semanal das turmas' },
   '/cursos/carga-horaria': { title:'Carga Horária', sub:'Horas ministradas por professor' },
   '/cursos/notas':         { title:'Notas e Resultados', sub:'Lançamento de notas e ata de resultados' },
+  '/cursos/certificados':  { title:'Certificados',       sub:'Emissão e histórico de certificados' },
   '/relatorios':   { title:'Relatórios',   sub:'Análise de dados' },
   '/agenda':       { title:'Agenda',       sub:'Eventos e calendário' },
   '/agenda/salas': { title:'Reserva de Salas', sub:'Agenda e gestão de espaços' },
@@ -182,6 +185,7 @@ const AppRoutes = React.memo(function AppRoutes() {
         <Route path="/perfis/editar/:id"              element={<Guarded perm="usuarios"><EditarPerfil/></Guarded>}/>
         <Route path="/auditlog"                       element={<Guarded perm="usuarios"><AuditLog/></Guarded>}/>
         <Route path="/estoque"                        element={<Guarded perm="config"><Estoque/></Guarded>}/>
+        <Route path="/cursos/certificados"            element={<Guarded perm="cursos"><Certificados/></Guarded>}/>
       </Routes>
     </div>
   )

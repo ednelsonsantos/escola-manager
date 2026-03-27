@@ -1,4 +1,4 @@
-# 🎓 Escola Manager v5.11
+# 🎓 Escola Manager v5.12
 
 Sistema desktop completo para gestão de escolas de idiomas.
 **React 18 + Electron 29 + SQLite + PizZip · GPL-3.0 · Criado por Ednelson Santos**
@@ -58,6 +58,7 @@ npm run build     # gera instalador .exe para Windows
 | **Reserva de Salas** | Gestão de espaços, reservas com detecção de conflito, calendário semanal |
 | **Inadimplentes** | Lista filtrada de alunos com atraso, envio de cobrança via Recados e WhatsApp em lote |
 | **Estoque** | Cadastro de materiais didáticos, movimentações com histórico, alertas de estoque mínimo |
+| **Certificados** | Emissão individual e em lote de certificados de conclusão em PDF (A4 paisagem), template configurável, histórico de emissões |
 | **Relatórios** | Financeiro, alunos, cursos e rematrículas — exportação CSV, PDF e XLSX |
 | **Agenda** | Calendário mensal + lista de eventos |
 | **Usuários** | Contas, perfis e permissões por módulo |
@@ -233,6 +234,7 @@ escola-v5/
 | `notas` | Notas por aluno/turma/período — parcial, final, recuperação, conceito (v5.10) |
 | `estoque_itens` | Itens do estoque com categoria, unidade, quantidade, mínimo e preços (v5.11) |
 | `estoque_movimentos` | Histórico de entradas, saídas e ajustes de inventário (v5.11) |
+| `certificados` | Certificados emitidos por aluno e turma, com campos de template e assinaturas (v5.12) |
 
 > **Nota v6:** As tabelas `professores_db`, `turmas_db`, `alunos_db`, `pagamentos_db` e `eventos_db` têm schema completo e migration automática aplicada, mas ainda são alimentadas pelo localStorage. A migração de dados está planejada — veja o Roadmap.
 
@@ -312,6 +314,7 @@ O scheduler de recados agendados roda a cada 60s via `setInterval` no `main.js`.
 - [x] **v5.10** — Inadimplentes: listagem filtrada por dias de atraso, envio de cobrança em lote via Recados e WhatsApp
 - [x] **v5.10** — Controle de cancelamento/reposição de aulas: checkbox na chamada, agendamento de reposição com vínculo bidirecional, badges na lista de aulas
 - [x] **v5.11** — Módulo Estoque e Material Didático: CRUD de itens com categorias, movimentações (entrada/saída/ajuste), histórico inline, alertas de estoque mínimo, KPIs
+- [x] **v5.12** — Módulo Certificados: emissão individual e em lote em PDF (A4 paisagem), template configurável com campos de assinatura, pré-visualização via iframe, histórico de emissões por turma/período
 
 ### 🔄 Segunda onda — em andamento
 

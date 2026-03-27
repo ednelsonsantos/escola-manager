@@ -1,6 +1,6 @@
 {
   "name": "escola-manager",
-  "version": "5.11.0",
+  "version": "5.12.0",
   "description": "Sistema de gestão para escolas de idiomas",
   "main": "electron/main.js",
   "scripts": {

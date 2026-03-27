@@ -407,6 +407,27 @@ function criarTabelas() {
 
     CREATE INDEX IF NOT EXISTS idx_estoque_item ON estoque_movimentos(item_id);
     CREATE INDEX IF NOT EXISTS idx_estoque_data ON estoque_movimentos(data);
+
+    CREATE TABLE IF NOT EXISTS certificados (
+      id              INTEGER PRIMARY KEY AUTOINCREMENT,
+      aluno_ls_id     INTEGER NOT NULL,
+      aluno_nome      TEXT    NOT NULL,
+      turma_ls_id     INTEGER NOT NULL,
+      turma_codigo    TEXT    DEFAULT '',
+      curso_nome      TEXT    DEFAULT '',
+      data_emissao    TEXT    DEFAULT (date('now','localtime')),
+      data_conclusao  TEXT    DEFAULT '',
+      carga_horaria   INTEGER DEFAULT 0,
+      texto_livre     TEXT    DEFAULT '',
+      assinatura1     TEXT    DEFAULT '',
+      assinatura2     TEXT    DEFAULT '',
+      local_data      TEXT    DEFAULT '',
+      emitido_por     TEXT    DEFAULT 'sistema',
+      criado_em       TEXT    DEFAULT (datetime('now','localtime'))
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_cert_aluno ON certificados(aluno_ls_id);
+    CREATE INDEX IF NOT EXISTS idx_cert_turma ON certificados(turma_ls_id);
   `)
 
   // Trigger para atualizar atualizado_em nos recados
@@ -2131,6 +2152,67 @@ function resumoEstoque() {
   return { total, abaixo, valorTotal, categorias }
 }
 
+// ── Certificados (v5.12) ─────────────────────────────────────────────────────
+
+function listarCertificados({ alunoLsId = null, turmaLsId = null, de = null, ate = null } = {}) {
+  dbOk()
+  let sql = 'SELECT * FROM certificados'
+  const params = []; const where = []
+  if (alunoLsId) { where.push('aluno_ls_id = ?'); params.push(alunoLsId) }
+  if (turmaLsId) { where.push('turma_ls_id = ?'); params.push(turmaLsId) }
+  if (de)        { where.push('data_emissao >= ?'); params.push(de) }
+  if (ate)       { where.push('data_emissao <= ?'); params.push(ate) }
+  if (where.length) sql += ' WHERE ' + where.join(' AND ')
+  sql += ' ORDER BY criado_em DESC'
+  return db.prepare(sql).all(...params)
+}
+
+function criarCertificado(d, _req = {}) {
+  dbOk()
+  if (!d.alunoNome?.trim()) return { ok: false, erro: 'Nome do aluno é obrigatório' }
+  const info = db.prepare(`
+    INSERT INTO certificados (
+      aluno_ls_id, aluno_nome, turma_ls_id, turma_codigo, curso_nome,
+      data_emissao, data_conclusao, carga_horaria,
+      texto_livre, assinatura1, assinatura2, local_data, emitido_por
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    d.alunoLsId     ?? d.aluno_ls_id   ?? null,
+    d.alunoNome.trim(),
+    d.turmaLsId     ?? d.turma_ls_id   ?? null,
+    d.turmaCodigo   ?? d.turma_codigo  || '',
+    d.cursoNome     ?? d.curso_nome    || '',
+    d.dataEmissao   ?? d.data_emissao  || new Date().toISOString().split('T')[0],
+    d.dataConclusao ?? d.data_conclusao || '',
+    Number(d.cargaHoraria ?? d.carga_horaria ?? 0),
+    d.textoLivre    ?? d.texto_livre   || '',
+    d.assinatura1   || '',
+    d.assinatura2   || '',
+    d.localData     ?? d.local_data    || '',
+    _req.userLogin  || 'sistema',
+  )
+  registrarLog({ usuarioId: _req.userId, usuarioLogin: _req.userLogin || 'sistema', modulo: 'certificados', acao: 'criar', entidadeId: info.lastInsertRowid, entidadeNome: d.alunoNome, detalhe: `Certificado emitido: ${d.alunoNome} — ${d.turmaCodigo || d.cursoNome}` })
+  return { ok: true, id: info.lastInsertRowid }
+}
+
+function deletarCertificado(id, _req = {}) {
+  dbOk()
+  const c = db.prepare('SELECT aluno_nome, turma_codigo FROM certificados WHERE id = ?').get(id)
+  if (!c) return { ok: false, erro: 'Certificado não encontrado' }
+  db.prepare('DELETE FROM certificados WHERE id = ?').run(id)
+  registrarLog({ usuarioId: _req.userId, usuarioLogin: _req.userLogin || 'sistema', modulo: 'certificados', acao: 'excluir', entidadeId: id, entidadeNome: c.aluno_nome, detalhe: `Certificado excluído: ${c.aluno_nome} — ${c.turma_codigo}`, nivel: 'aviso' })
+  return { ok: true }
+}
+
+function resumoCertificados() {
+  dbOk()
+  const total   = db.prepare('SELECT COUNT(*) AS n FROM certificados').get().n
+  const turmas  = db.prepare('SELECT COUNT(DISTINCT turma_ls_id) AS n FROM certificados').get().n
+  const recente = db.prepare('SELECT data_emissao FROM certificados ORDER BY criado_em DESC LIMIT 1').get()
+  const porTurma = db.prepare('SELECT turma_codigo, curso_nome, COUNT(*) AS n FROM certificados GROUP BY turma_ls_id ORDER BY n DESC').all()
+  return { total, turmas, ultimaEmissao: recente?.data_emissao || null, porTurma }
+}
+
 module.exports = {
   init, getDbPath,
   login,
@@ -2164,4 +2246,6 @@ module.exports = {
   // Estoque e Material Didático (v5.11)
   listarEstoqueItens, getEstoqueItem, criarEstoqueItem, editarEstoqueItem, deletarEstoqueItem,
   listarEstoqueMovimentos, registrarMovimento, resumoEstoque,
+  // Certificados (v5.12)
+  listarCertificados, criarCertificado, deletarCertificado, resumoCertificados,
 }
