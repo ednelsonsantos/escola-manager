@@ -48,7 +48,7 @@ async function main() {
       electronProc = spawn('npx', ['electron', '.'], {
         shell: true,
         stdio: 'inherit',
-        env: { ...process.env, VITE_DEV_URL: url },
+        env: { ...process.env, VITE_DEV_URL: url, ELECTRON_RUN_AS_NODE: '' },
       })
       electronProc.on('exit', (code) => {
         console.log('\n📦 Electron encerrado. Parando Vite...')
