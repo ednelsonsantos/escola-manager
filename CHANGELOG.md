@@ -4,6 +4,13 @@ Formato: [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/) · [SemVer]
 
 ---
 
+## [5.12.1] — 2026-03
+
+### Corrigido
+- **Build do instalador** — `electron-builder` agora usa `release/` como diretório de saída, eliminando conflito com `dist/` do Vite e alinhando com o workflow do GitHub Actions
+
+---
+
 ## [5.12.0] — 2026-03
 
 ### Adicionado
