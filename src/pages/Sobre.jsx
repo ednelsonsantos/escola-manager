@@ -14,18 +14,28 @@ const AUTOR = {
   cor:     '#63dcaa',
 }
 
-const VERSAO = '5.5.5'
-const ANO    = '2025'
+const VERSAO = '5.12.0'
+const ANO    = '2026'
 
 const MODULOS = [
-  { icon: LayoutDashboardIcon, label: 'Dashboard',      desc: 'Abas por perfil: Visão Geral, Financeiro, Pedagógico e Agenda' },
-  { icon: UsersIcon,           label: 'Alunos',         desc: 'Cadastro completo, ficha e histórico de pagamentos' },
-  { icon: DollarSignIcon,      label: 'Financeiro',     desc: 'Mensalidades, encargos (multa+juros), desconto antecipado, recibos e exportação' },
-  { icon: BookOpenIcon,        label: 'Cursos',         desc: 'Turmas, professores e ocupação' },
-  { icon: BarChart2Icon,       label: 'Relatórios',     desc: 'Análise detalhada com exportação CSV/JSON' },
-  { icon: CalendarIcon,        label: 'Agenda',         desc: 'Calendário de eventos e atividades' },
-  { icon: ShieldIcon,          label: 'Usuários',       desc: 'Contas, perfis e controle de acesso' },
-  { icon: ShieldIcon,          label: 'Log de Auditoria', desc: 'Histórico completo de ações do sistema' },
+  { icon: LayoutDashboardIcon, label: 'Dashboard',         desc: 'Abas por perfil: Visão Geral, Financeiro, Pedagógico e Agenda' },
+  { icon: UsersIcon,           label: 'Alunos',            desc: 'Cadastro completo, ficha e histórico de pagamentos' },
+  { icon: DollarSignIcon,      label: 'Financeiro',        desc: 'Mensalidades, encargos (multa+juros), desconto antecipado, boleto PDF, WhatsApp' },
+  { icon: BookOpenIcon,        label: 'Cursos',            desc: 'Turmas, professores e ocupação' },
+  { icon: CalendarIcon,        label: 'Frequência',        desc: 'Chamada por turma/aula, conteúdo ministrado, ausência do professor' },
+  { icon: ShieldIcon,          label: 'Recados',           desc: 'Criação, agendamento e envio de recados por secretaria/professor' },
+  { icon: DollarSignIcon,      label: 'Fluxo de Caixa',   desc: 'Lançamentos de entradas/saídas, gráfico mensal, resumo por categoria' },
+  { icon: CalendarIcon,        label: 'Grade de Horários', desc: 'Grade visual semanal das turmas com cores por idioma' },
+  { icon: BarChart2Icon,       label: 'Carga Horária',     desc: 'Horas ministradas por professor com detalhamento e exportação CSV' },
+  { icon: BookOpenIcon,        label: 'Notas',             desc: 'Grid de notas por turma/período, média automática, ata em PDF' },
+  { icon: CalendarIcon,        label: 'Reserva de Salas',  desc: 'Gestão de espaços, reservas com detecção de conflito de horário' },
+  { icon: UsersIcon,           label: 'Inadimplentes',     desc: 'Lista filtrada por dias de atraso, cobrança em lote via Recados e WhatsApp' },
+  { icon: BookOpenIcon,        label: 'Estoque',           desc: 'Materiais didáticos, movimentações, histórico e alertas de estoque mínimo' },
+  { icon: ShieldIcon,          label: 'Certificados',      desc: 'Emissão individual e em lote de certificados de conclusão em PDF' },
+  { icon: BarChart2Icon,       label: 'Relatórios',        desc: 'Análise detalhada com exportação CSV, PDF e XLSX' },
+  { icon: CalendarIcon,        label: 'Agenda',            desc: 'Calendário de eventos e atividades' },
+  { icon: ShieldIcon,          label: 'Usuários',          desc: 'Contas, perfis e controle de acesso por módulo' },
+  { icon: ShieldIcon,          label: 'Log de Auditoria',  desc: 'Histórico completo de ações do sistema' },
 ]
 
 // Ícones como componentes simples para não precisar importar tudo
@@ -45,9 +55,46 @@ const DEPS = [
   { nome:'Vite',             licenca:'MIT', uso:'Build e desenvolvimento' },
   { nome:'Lucide React',     licenca:'ISC', uso:'Ícones da interface' },
   { nome:'React Router',     licenca:'MIT', uso:'Navegação entre páginas' },
+  { nome:'PizZip',           licenca:'MIT', uso:'Geração de XLSX/XLS sem servidor' },
+  { nome:'docxtemplater',    licenca:'MIT', uso:'Templates de documentos Word' },
 ]
 
 const HISTORICO = [
+  { versao:'5.12.0', data:'Mar/2026', destaques:[
+    'Módulo Certificados — emissão individual e em lote de certificados de conclusão em PDF (A4 paisagem)',
+    'Template estilizado com bordas duplas (navy + gold), Playfair Display + Lato',
+    'Campos configuráveis: texto livre, 2 assinaturas, local/data, carga horária',
+    'Pré-visualização via iframe antes de imprimir — sem modal extra',
+    'Histórico de emissões com filtro por turma e período, KPIs (total, turmas, última emissão)',
+    'Fix: dev-runner.js usa delete env.ELECTRON_RUN_AS_NODE — elimina conflito com VS Code',
+    'Fix: sintaxe ?? || sem parênteses no database.js (SyntaxError)',
+  ]},
+  { versao:'5.11.0', data:'Mar/2026', destaques:[
+    'Módulo Estoque e Material Didático — CRUD de itens, movimentações (entrada/saída/ajuste), alertas de mínimo',
+    'Módulo Fluxo de Caixa — lançamentos manuais, gráfico de barras, resumo por categoria',
+    'Módulo Reserva de Salas — espaços, reservas com detecção de conflito, calendário semanal',
+    'Módulo Notas / Ata de Resultados — grid inline, média automática, conceito A–E, ata PDF',
+    'Grade Visual de Horários — parsing automático de texto livre, cores por idioma',
+    'Carga Horária — horas por professor com exportação CSV',
+    'Inadimplentes — cobrança em lote via Recados e WhatsApp',
+    'Cancelamento/reposição de aulas — checkbox na chamada, vínculo bidirecional',
+    'Fix: Modal e ConfirmModal agora usam createPortal — corrige posição quebrada por zoom CSS',
+  ]},
+  { versao:'5.7.0', data:'Mar/2026', destaques:[
+    'Justificativa de ausência do professor com recado automático para secretaria',
+    'Relatório de Rematrículas — detecção de mudança de turma, reativação e renovação',
+    'Exportação de Rematrículas em XLSX, XLS e CSV via PizZip',
+    'Schema v6 completo com migration automática no startup',
+    'Fix: botão fechar travava em dev após hot reload (ipcMain.once → on + timeout)',
+  ]},
+  { versao:'5.6.0', data:'Mar/2026', destaques:[
+    'Módulo de Recados — criação, agendamento e envio por secretaria/professor para alunos/turmas',
+    'Status "Lista de Espera" nos alunos com filtro e badge dedicado',
+    'Dados de Responsável no cadastro (nome, telefone, e-mail, parentesco, WhatsApp)',
+    'Conteúdo ministrado por aula no módulo de Frequência',
+    'Fix: modais com position:fixed quebrados por zoom CSS — resolvido com createPortal',
+    'Fix: chaves de presença unificadas como String(id)',
+  ]},
   { versao:'5.5.5', data:'Mar/2025', destaques:[
     'Fix definitivo: sidebar footer visível no .exe — position:fixed com z-index:9999',
     'Sidebar-nav recebe padding-bottom para último item não ficar coberto pelo footer',

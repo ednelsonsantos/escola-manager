@@ -9,6 +9,11 @@ Formato: [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/) · [SemVer]
 ### Adicionado
 - **Módulo Certificados** — emissão individual e em lote de certificados de conclusão em PDF (A4 paisagem), template estilizado com bordas duplas (navy + gold), fontes Playfair Display + Lato, campos configuráveis (texto livre, assinaturas, local/data, carga horária), pré-visualização via iframe antes de imprimir, histórico de emissões com filtro por turma e período, KPIs (total emitidos, turmas atendidas, última emissão)
 
+### Corrigido
+- **dev-runner.js** — `ELECTRON_RUN_AS_NODE` removido via `delete` do env do spawn (string vazia não funcionava no Windows)
+- **electron/database.js** — operadores `?? ||` sem parênteses causavam `SyntaxError` no startup (afetava `registrarMovimento` e `criarCertificado`)
+- **src/main.jsx** — arquivo restaurado após deleção acidental no commit v5.11
+
 ### Infraestrutura
 - Nova tabela SQLite: `certificados` — com migration automática no startup
 - Novos IPC handlers: `cert:listar`, `cert:criar`, `cert:deletar`, `cert:resumo`

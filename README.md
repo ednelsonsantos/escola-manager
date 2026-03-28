@@ -184,7 +184,7 @@ escola-v5/
 ├── electron/
 │   ├── main.js          # IPC, janela, PDF, WhatsApp, backup, frequência, recados, exportação
 │   ├── preload.js       # Bridge segura renderer ↔ main (contextBridge)
-│   └── database.js      # SQLite: auth, auditoria, frequência, recados, schema v6
+│   └── database.js      # SQLite: auth, auditoria, frequência, recados, estoque, certificados, schema v6
 ├── src/
 │   ├── utils/
 │   │   └── pdfUtils.js        # Gerador HTML/CSS para PDF + enviarWhatsApp
@@ -199,6 +199,9 @@ escola-v5/
 │   │   ├── Agenda.jsx         ├── EditarEvento.jsx ├── Usuarios.jsx
 │   │   ├── EditarUsuario.jsx  ├── EditarPerfil.jsx ├── AuditLog.jsx
 │   │   ├── Configuracoes.jsx  ├── Sobre.jsx
+│   │   ├── FluxoCaixa.jsx     ├── GradeHorarios.jsx├── CargaHoraria.jsx
+│   │   ├── Notas.jsx          ├── ReservaSalas.jsx ├── Inadimplentes.jsx
+│   │   ├── Estoque.jsx        ├── Certificados.jsx
 │   │   └── Recados/
 │   │       ├── Recados.jsx        # Painel admin/secretaria/professor
 │   │       └── RecadosAluno.jsx   # Painel aluno/responsável + hook badge

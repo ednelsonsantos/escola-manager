@@ -1,4 +1,4 @@
-# 📦 Guia de Instalação — Escola Manager v5
+# 📦 Guia de Instalação — Escola Manager v5.12
 
 ## ✅ Requisitos
 
@@ -51,7 +51,11 @@ npx electron-builder install-app-deps
 npm run dev
 ```
 
-### "ELECTRON_RUN_AS_NODE" ou erro de permissão
+### "Cannot read properties of undefined (reading 'isPackaged')"
+
+O VS Code define `ELECTRON_RUN_AS_NODE=1` no terminal integrado, o que impede o Electron de inicializar corretamente. O `dev-runner.js` já remove essa variável automaticamente via `delete`. Se o problema persistir, abra um terminal externo (fora do VS Code) e rode `npm run dev` de lá.
+
+### Erro de permissão ou módulos faltando
 
 ```bash
 # Limpe o cache e reinstale
@@ -87,6 +91,7 @@ O arquivo `.exe` será gerado em `dist/` — pode distribuir para outros computa
 | `admin`       | admin123  |
 | `secretaria`  | sec123    |
 | `demo`        | demo      |
+| `professor`   | profe123  |
 
 O banco de dados fica em:
 ```

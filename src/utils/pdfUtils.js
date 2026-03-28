@@ -176,7 +176,7 @@ export function gerarHTMLBoleto({ pagamento, aluno, turma, escola, settings }) {
 
     <div class="footer">
       <span>${nomeEscola} · Documento gerado em ${agora()}</span>
-      <span>Escola Manager v5.5.3 · Software Livre GPL-3.0</span>
+      <span>Escola Manager v5.12.0 · Software Livre GPL-3.0</span>
     </div>
   `
   return wrap(body, `Cobrança — ${aluno?.nome} — ${pagamento.mes}`, nomeEscola)
