@@ -45,10 +45,12 @@ async function main() {
       viteReady = true
       console.log(`\n⚡ Vite pronto em ${url} — iniciando Electron...`)
       process.env.VITE_DEV_URL = url
+      const electronEnv = { ...process.env, VITE_DEV_URL: url }
+      delete electronEnv.ELECTRON_RUN_AS_NODE
       electronProc = spawn('npx', ['electron', '.'], {
         shell: true,
         stdio: 'inherit',
-        env: { ...process.env, VITE_DEV_URL: url, ELECTRON_RUN_AS_NODE: '' },
+        env: electronEnv,
       })
       electronProc.on('exit', (code) => {
         console.log('\n📦 Electron encerrado. Parando Vite...')
