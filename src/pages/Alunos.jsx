@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Search, Plus, Pencil, Trash2, Eye, UserCheck, UserX, AlertCircle, Download, X, ChevronLeft, ChevronRight } from 'lucide-react'
 import { useApp, formatBRL, formatDate, mesAtualDinamico } from '../context/AppContext.jsx'
+import { useAuth } from '../context/AuthContext.jsx'
 import Modal, { ConfirmModal } from '../components/Modal.jsx'
 
 const EMPTY_FORM = { nome:'', email:'', telefone:'', turmaId:'', mensalidade:'', status:'Ativo', dataNasc:'', dataMatricula:'', obs:'' }
@@ -69,7 +70,7 @@ function AlunoForm({ data, onChange, turmas, erros={} }) {
   )
 }
 
-function AlunoDetail({ aluno, turmas, professores, pagamentos, onClose, onEdit }) {
+function AlunoDetail({ aluno, turmas, professores, pagamentos, onClose, onEdit, ocultarFinanceiro }) {
   const turmasDoAluno = Array.isArray(aluno.matriculas) && aluno.matriculas.length > 0
     ? aluno.matriculas.map(m => {
         const t = turmas.find(t => t.id === Number(m.turmaId))
@@ -136,7 +137,7 @@ function AlunoDetail({ aluno, turmas, professores, pagamentos, onClose, onEdit }
                   <span className="detail-key">Professor</span>
                   <span className="detail-val">{p?.nome||'—'}</span>
                 </div>
-                {t.mensalidade != null && (
+                {!ocultarFinanceiro && t.mensalidade != null && (
                   <div className="detail-row">
                     <span className="detail-key">Mensalidade</span>
                     <span className="detail-val" style={{color:'var(--accent)',fontWeight:600}}>{formatBRL(t.mensalidade)}</span>
@@ -145,7 +146,7 @@ function AlunoDetail({ aluno, turmas, professores, pagamentos, onClose, onEdit }
               </div>
             )
           })}
-          {turmasDoAluno.length === 0 && (
+          {!ocultarFinanceiro && turmasDoAluno.length === 0 && (
             <div className="detail-row">
               <span className="detail-key">Mensalidade</span>
               <span className="detail-val" style={{color:'var(--accent)',fontWeight:600}}>{formatBRL(aluno.mensalidade)}</span>
@@ -201,26 +202,30 @@ function AlunoDetail({ aluno, turmas, professores, pagamentos, onClose, onEdit }
           )}
         </div>
         <div>
-          <div style={{fontFamily:"'Syne',sans-serif",fontSize:13,fontWeight:700,color:'var(--text-1)',marginBottom:12}}>
-            Histórico de Pagamentos
-          </div>
-          {pgAluno.length===0
-            ? <div style={{color:'var(--text-3)',fontSize:13}}>Sem histórico registrado.</div>
-            : pgAluno.map(p=>(
-              <div key={p.id} style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'9px 0',borderBottom:'1px solid var(--border)'}}>
-                <div>
-                  <div style={{fontSize:13,color:'var(--text-1)'}}>{p.mes}</div>
-                  <div style={{fontSize:11,color:'var(--text-3)'}}>Venc: {formatDate(p.vencimento)}</div>
-                </div>
-                <div style={{textAlign:'right'}}>
-                  <div style={{fontFamily:"'Syne',sans-serif",fontSize:13,fontWeight:700,color:'var(--text-1)'}}>{formatBRL(p.valor)}</div>
-                  {p.status==='Pago'     && <span className="badge bg-green"  style={{fontSize:10}}>Pago</span>}
-                  {p.status==='Atrasado' && <span className="badge bg-red"    style={{fontSize:10}}>Atrasado</span>}
-                  {p.status==='Pendente' && <span className="badge bg-yellow" style={{fontSize:10}}>Pendente</span>}
-                </div>
+          {!ocultarFinanceiro && (
+            <>
+              <div style={{fontFamily:"'Syne',sans-serif",fontSize:13,fontWeight:700,color:'var(--text-1)',marginBottom:12}}>
+                Histórico de Pagamentos
               </div>
-            ))
-          }
+              {pgAluno.length===0
+                ? <div style={{color:'var(--text-3)',fontSize:13}}>Sem histórico registrado.</div>
+                : pgAluno.map(p=>(
+                  <div key={p.id} style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'9px 0',borderBottom:'1px solid var(--border)'}}>
+                    <div>
+                      <div style={{fontSize:13,color:'var(--text-1)'}}>{p.mes}</div>
+                      <div style={{fontSize:11,color:'var(--text-3)'}}>Venc: {formatDate(p.vencimento)}</div>
+                    </div>
+                    <div style={{textAlign:'right'}}>
+                      <div style={{fontFamily:"'Syne',sans-serif",fontSize:13,fontWeight:700,color:'var(--text-1)'}}>{formatBRL(p.valor)}</div>
+                      {p.status==='Pago'     && <span className="badge bg-green"  style={{fontSize:10}}>Pago</span>}
+                      {p.status==='Atrasado' && <span className="badge bg-red"    style={{fontSize:10}}>Atrasado</span>}
+                      {p.status==='Pendente' && <span className="badge bg-yellow" style={{fontSize:10}}>Pendente</span>}
+                    </div>
+                  </div>
+                ))
+              }
+            </>
+          )}
         </div>
       </div>
     </Modal>
@@ -229,6 +234,8 @@ function AlunoDetail({ aluno, turmas, professores, pagamentos, onClose, onEdit }
 
 export default function Alunos() {
   const { alunos, addAluno, updateAluno, deleteAluno, turmas, professores, pagamentos, exportCSV } = useApp()
+  const { user } = useAuth()
+  const ocultarFinanceiro = user ? (user.perm_financeiro ?? 2) < 1 : false
   const nav = useNavigate()
 
   const [search,  setSearch]  = useState('')
@@ -324,7 +331,7 @@ export default function Alunos() {
         </div>
         <div className="ss-divider"/>
         <div className="ss-item"><AlertCircle size={13} style={{color:'var(--red)'}}/> Inadimplentes: <strong style={{color:'var(--red)'}}>{pagamentos.filter(p=>p.mes===mesAtualDinamico()&&p.status==='Atrasado').length}</strong></div>
-        <div style={{marginLeft:'auto'}} className="ss-item">Receita potencial: <strong style={{color:'var(--accent)'}}>{formatBRL(totalMensalidade)}/mês</strong></div>
+        {!ocultarFinanceiro && <div style={{marginLeft:'auto'}} className="ss-item">Receita potencial: <strong style={{color:'var(--accent)'}}>{formatBRL(totalMensalidade)}/mês</strong></div>}
         <div className="ss-divider"/>
         <div className="ss-item" style={{color:'var(--text-3)'}}>{filtered.length} resultado{filtered.length!==1?'s':''}</div>
       </div>
@@ -340,7 +347,7 @@ export default function Alunos() {
           : <>
               <table className="tbl-compact">
                 <thead><tr>
-                  <th>#</th><th>Aluno</th><th>Turma</th><th>Mensalidade</th><th>Situação</th><th>Status</th><th>Matrícula</th><th style={{width:108}}>Ações</th>
+                  <th>#</th><th>Aluno</th><th>Turma</th>{!ocultarFinanceiro && <th>Mensalidade</th>}<th>Situação</th><th>Status</th><th>Matrícula</th><th style={{width:108}}>Ações</th>
                 </tr></thead>
                 <tbody>
                   {paginated.map((a,i) => {
@@ -377,7 +384,7 @@ export default function Alunos() {
                             </div>
                           )}
                         </td>
-                        <td className="td-mono">{formatBRL(a.mensalidade)}</td>
+                        {!ocultarFinanceiro && <td className="td-mono">{formatBRL(a.mensalidade)}</td>}
                         <td>
                           {sit==='Pago'     && <span className="badge bg-green"><span className="bdot"/>Em dia</span>}
                           {sit==='Atrasado' && <span className="badge bg-red"><span className="bdot"/>Atrasado</span>}
@@ -437,6 +444,7 @@ export default function Alunos() {
 
       {modal==='detail' && sel && (
         <AlunoDetail aluno={sel} turmas={turmas} professores={professores} pagamentos={pagamentos}
+          ocultarFinanceiro={ocultarFinanceiro}
           onClose={()=>setModal(null)} onEdit={()=>openEdit(sel)}/>
       )}
 

@@ -14,7 +14,7 @@ const AUTOR = {
   cor:     '#63dcaa',
 }
 
-const VERSAO = '5.12.0'
+const VERSAO = '5.14.0'
 const ANO    = '2026'
 
 const MODULOS = [
@@ -60,6 +60,18 @@ const DEPS = [
 ]
 
 const HISTORICO = [
+  { versao:'5.14.0', data:'Mar/2026', destaques:[
+    'Visão Geral de Notas — toggle para ver todas as turmas com notas em abas horizontais, filtros por professor e período, busca por aluno',
+    'Privacidade financeira — perfis sem acesso ao Financeiro não veem mensalidade de alunos, salário/contrato de professores nem valores no Dashboard',
+    'Fix: Notas exibiam NaN na coluna Média quando aluno não tinha nota — agora exibe "—"',
+    'Fix: badge de notificações conta cada pendente individualmente; badge Financeiro inclui pendentes + atrasados',
+    'Seed scripts: seed_financeiro.js, seed_notas.js, seed_notas_extra.js, seed_usuarios_prof.js',
+  ]},
+  { versao:'5.13.0', data:'Mar/2026', destaques:[
+    'Frequência redesenhada — grid de cards horizontais (7 aulas/linha), agrupados por dia do calendário',
+    'Substituição de professor — seleção com validação de conflito de horário, registro no audit_log',
+    'Folha de Pagamento CLT/PJ — geração mensal; CLT com desconto proporcional por horas; PJ por hora ministrada',
+  ]},
   { versao:'5.12.0', data:'Mar/2026', destaques:[
     'Módulo Certificados — emissão individual e em lote de certificados de conclusão em PDF (A4 paisagem)',
     'Template estilizado com bordas duplas (navy + gold), Playfair Display + Lato',

@@ -21,6 +21,43 @@ function createWindow() {
 
   win.once('ready-to-show', () => win.show())
 
+  // ── Seed de teste: injeta em_pags se seed_pags.json existir (auto-remove) ────
+  let seedDone = false
+  win.webContents.on('did-finish-load', () => {
+    if (seedDone) return
+    const seedFile = path.join(__dirname, '..', 'seed_pags.json')
+    if (!fs.existsSync(seedFile)) return
+    seedDone = true
+    try {
+      const seed = JSON.parse(fs.readFileSync(seedFile, 'utf8'))
+      const js = `
+(function(){
+  let pags = [];
+  try { pags = JSON.parse(localStorage.getItem('em_pags') || '[]') } catch(_){}
+  const ids = ${JSON.stringify(seed.map(p => p.alunoId))};
+  const meses = ${JSON.stringify([...new Set(seed.map(p => p.mes))])};
+  pags = pags.filter(p => !(ids.includes(p.alunoId) && meses.includes(p.mes)));
+  const nextId = pags.length ? Math.max(...pags.map(p => p.id)) + 1 : 200;
+  const novos = ${JSON.stringify(seed)}.map((p, i) => ({...p, id: nextId + i}));
+  localStorage.setItem('em_pags', JSON.stringify([...pags, ...novos]));
+  console.log('[Seed] ' + novos.length + ' pagamentos injetados');
+  return novos.length;
+})()
+`
+      win.webContents.executeJavaScript(js)
+        .then(n => {
+          console.log(`[Main] Seed: ${n} pagamentos inseridos — recarregando renderer`)
+          // Recarrega para que o React leia o localStorage atualizado
+          setTimeout(() => win.webContents.reload(), 300)
+        })
+        .catch(e => console.error('[Seed] erro JS:', e.message))
+      fs.unlinkSync(seedFile)
+      console.log('[Main] seed_pags.json executado e removido')
+    } catch (e) {
+      console.error('[Main] Erro ao processar seed_pags.json:', e.message)
+    }
+  })
+
   if (isDev) {
     const devUrl = process.env.VITE_DEV_URL || 'http://localhost:5173'
     win.loadURL(devUrl)

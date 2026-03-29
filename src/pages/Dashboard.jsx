@@ -120,12 +120,16 @@ export default function Dashboard() {
   const ativos        = alunos.filter(a => a.status === 'Ativo')
   const pgMesAtual    = pagamentos.filter(p => p.mes === mesAtual)
   const pgPago        = pgMesAtual.filter(p => p.status === 'Pago')
-  const inadimplentes = pgMesAtual.filter(p => p.status === 'Atrasado')
-  const pendentes     = pgMesAtual.filter(p => p.status === 'Pendente')
+  const inadimplentes  = pgMesAtual.filter(p => p.status === 'Atrasado')
+  const pendentes      = pgMesAtual.filter(p => p.status === 'Pendente')
+  // Atrasados primeiro, depois pendentes
+  const pendenciasDoMes = [...inadimplentes, ...pendentes]
   const receitaMes    = pgPago.reduce((s, p) => s + p.valor, 0)
   const receitaAnt    = pagamentos.filter(p => p.mes === mesAnterior && p.status === 'Pago').reduce((s,p) => s+p.valor, 0)
   const varReceita    = receitaAnt ? ((receitaMes - receitaAnt) / receitaAnt * 100).toFixed(1) : 0
   const turmasAtivas  = turmas.filter(t => t.ativa)
+
+  const ocultarFinanceiro = user ? (user.perm_financeiro ?? 2) < 1 : false
 
   // Professor: filtra apenas turmas dele
   const isProfessor   = user?.perfil_nome?.includes('Professor')
@@ -295,9 +299,11 @@ export default function Dashboard() {
           <div className="pay-name">{al?.nome?.split(' ').slice(0,2).join(' ') || '—'}</div>
           <div className="pay-meta">{t ? `${t.idioma} · ${t.codigo}` : `Venc: ${formatDate(p.vencimento)}`}</div>
         </div>
-        <div className="pay-val" style={{color: p.status==='Pago'?'var(--accent)':p.status==='Atrasado'?'var(--red)':'var(--yellow)'}}>
-          {formatBRL(p.valor)}
-        </div>
+        {!ocultarFinanceiro && (
+          <div className="pay-val" style={{color: p.status==='Pago'?'var(--accent)':p.status==='Atrasado'?'var(--red)':'var(--yellow)'}}>
+            {formatBRL(p.valor)}
+          </div>
+        )}
         {showStatus && (
           p.status==='Pago'     ? <span className="badge bg-green"><span className="bdot"/>Pago</span>     :
           p.status==='Atrasado' ? <span className="badge bg-red"><span className="bdot"/>Atrasado</span>   :
@@ -360,26 +366,30 @@ export default function Dashboard() {
         <div className="stat-grid fade-up" style={{marginBottom:16}}>
           <StatCard color="green"  icon={Users}        label="Alunos Ativos"  value={ativos.length}
             sub={`${turmasAtivas.length} turmas ativas`} />
-          <StatCard color="blue"   icon={DollarSign}   label={`Receita ${mesLabel(mesAtual)}`} value={formatBRL(receitaMes)}
-            sub={`${Number(varReceita)>=0?'▲':'▼'} ${Math.abs(varReceita)}% vs mês anterior`}
-            subColor={Number(varReceita)>=0?'var(--accent)':'var(--red)'} />
+          {!ocultarFinanceiro && (
+            <StatCard color="blue"   icon={DollarSign}   label={`Receita ${mesLabel(mesAtual)}`} value={formatBRL(receitaMes)}
+              sub={`${Number(varReceita)>=0?'▲':'▼'} ${Math.abs(varReceita)}% vs mês anterior`}
+              subColor={Number(varReceita)>=0?'var(--accent)':'var(--red)'} />
+          )}
           <StatCard color="red"    icon={AlertTriangle} label="Inadimplentes"  value={inadimplentes.length}
-            sub={`${formatBRL(inadimplentes.reduce((s,p)=>s+p.valor,0))} em risco`}
+            sub={ocultarFinanceiro ? `${inadimplentes.length} pendente${inadimplentes.length!==1?'s':''}` : `${formatBRL(inadimplentes.reduce((s,p)=>s+p.valor,0))} em risco`}
             subColor={inadimplentes.length>0?'var(--red)':undefined} />
           <StatCard color="purple" icon={BookOpen}      label="Turmas Ativas"  value={turmasAtivas.length}
             sub={`${professores.filter(p=>p.ativo).length} professores`} />
         </div>
 
-        <div style={{display:'grid',gridTemplateColumns:'2fr 1fr',gap:14,marginBottom:16}} className="fade-up">
-          <div className="chart-card">
-            <div className="chart-head">
-              <div>
-                <div className="chart-title">Faturamento Mensal</div>
-                <div className="chart-sub">Últimos 7 meses · Receitas confirmadas</div>
+        <div style={{display:'grid',gridTemplateColumns:ocultarFinanceiro?'1fr':'2fr 1fr',gap:14,marginBottom:16}} className="fade-up">
+          {!ocultarFinanceiro && (
+            <div className="chart-card">
+              <div className="chart-head">
+                <div>
+                  <div className="chart-title">Faturamento Mensal</div>
+                  <div className="chart-sub">Últimos 7 meses · Receitas confirmadas</div>
+                </div>
               </div>
+              <div style={{height:200}}><Line data={lineData} options={lineOpts}/></div>
             </div>
-            <div style={{height:200}}><Line data={lineData} options={lineOpts}/></div>
-          </div>
+          )}
 
           <div className="chart-card">
             <div className="chart-head">
@@ -424,12 +434,16 @@ export default function Dashboard() {
 
           <div className="tbl-wrap">
             <div className="tbl-top">
-              <span className="tbl-title">Inadimplentes</span>
-              <span className="badge bg-red">{inadimplentes.length} em atraso</span>
+              <span className="tbl-title">Pendências do Mês</span>
+              <div style={{display:'flex',gap:6}}>
+                {inadimplentes.length > 0 && <span className="badge bg-red">{inadimplentes.length} atrasado{inadimplentes.length!==1?'s':''}</span>}
+                {pendentes.length > 0      && <span className="badge bg-yellow">{pendentes.length} pendente{pendentes.length!==1?'s':''}</span>}
+                {pendenciasDoMes.length === 0 && <span className="badge bg-green">0 pendências</span>}
+              </div>
             </div>
-            {inadimplentes.length === 0
-              ? <div className="empty"><TrendingUp size={32}/><p>Nenhum inadimplente!</p><small>Todos os pagamentos em dia</small></div>
-              : inadimplentes.map((p,i) => <AlunoRow key={p.id} p={p} i={i} showStatus={false}/>)
+            {pendenciasDoMes.length === 0
+              ? <div className="empty"><TrendingUp size={32}/><p>Nenhuma pendência!</p><small>Todos os pagamentos em dia</small></div>
+              : pendenciasDoMes.map((p,i) => <AlunoRow key={p.id} p={p} i={i} showStatus/>)
             }
           </div>
         </div>
@@ -534,12 +548,16 @@ export default function Dashboard() {
 
           <div className="tbl-wrap">
             <div className="tbl-top">
-              <span className="tbl-title">Inadimplentes</span>
-              <span className="badge bg-red">{inadimplentes.length} em atraso</span>
+              <span className="tbl-title">Pendências do Mês</span>
+              <div style={{display:'flex',gap:6}}>
+                {inadimplentes.length > 0 && <span className="badge bg-red">{inadimplentes.length} atrasado{inadimplentes.length!==1?'s':''}</span>}
+                {pendentes.length > 0      && <span className="badge bg-yellow">{pendentes.length} pendente{pendentes.length!==1?'s':''}</span>}
+                {pendenciasDoMes.length === 0 && <span className="badge bg-green">0 pendências</span>}
+              </div>
             </div>
-            {inadimplentes.length === 0
-              ? <div className="empty"><TrendingUp size={32}/><p>Nenhum inadimplente!</p></div>
-              : inadimplentes.map((p,i) => <AlunoRow key={p.id} p={p} i={i} showStatus={false}/>)
+            {pendenciasDoMes.length === 0
+              ? <div className="empty"><TrendingUp size={32}/><p>Nenhuma pendência!</p></div>
+              : pendenciasDoMes.map((p,i) => <AlunoRow key={p.id} p={p} i={i} showStatus/>)
             }
           </div>
         </div>

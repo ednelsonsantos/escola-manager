@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import { Plus, Pencil, Trash2, Users, BookOpen, Search, X, Clock, AlertTriangle, Phone, Briefcase } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useApp, formatBRL } from '../context/AppContext.jsx'
+import { useAuth } from '../context/AuthContext.jsx'
 import { ConfirmModal } from '../components/Modal.jsx'
 
 const CORES_IDIOMA = { 'Inglês':'#63dcaa','Espanhol':'#f5c542','Francês':'#5b9cf6','Alemão':'#f2617a','Italiano':'#a78bfa','default':'#8b949e' }
@@ -9,6 +10,8 @@ const CORES_IDIOMA = { 'Inglês':'#63dcaa','Espanhol':'#f5c542','Francês':'#5b9
 export default function Cursos() {
   const nav = useNavigate()
   const { turmas, deleteTurma, professores, deleteProfessor, alunos } = useApp()
+  const { user } = useAuth()
+  const ocultarFinanceiro = user ? (user.perm_financeiro ?? 2) < 1 : false
 
   const [tab,    setTab]    = useState('turmas')
   const [search, setSearch] = useState('')
@@ -167,7 +170,7 @@ export default function Cursos() {
             ? <div className="empty"><Users size={40}/><p>Nenhum professor encontrado.</p></div>
             : <table>
                 <thead><tr>
-                  <th>Nome</th><th>Idioma</th><th>Contrato</th><th>E-mail</th><th>Turmas</th><th>Alunos</th><th>Status</th><th style={{width:90}}>Ações</th>
+                  <th>Nome</th><th>Idioma</th>{!ocultarFinanceiro && <th>Contrato</th>}{!ocultarFinanceiro && <th>E-mail</th>}<th>Turmas</th><th>Alunos</th><th>Status</th><th style={{width:90}}>Ações</th>
                 </tr></thead>
                 <tbody>
                   {filtProfs.map(p => {
@@ -190,24 +193,26 @@ export default function Cursos() {
                           </div>
                         </td>
                         <td><span className="badge" style={{background:cor+'22',color:cor}}>{p.idioma||'—'}</span></td>
-                        <td>
-                          <div style={{display:'flex',flexDirection:'column',gap:2}}>
-                            <span style={{
-                              fontSize:11,fontWeight:700,padding:'2px 8px',borderRadius:20,alignSelf:'flex-start',
-                              background:corContrato+'22',color:corContrato,
-                            }}>{p.tipo_contrato||'CLT'}</span>
-                            {isCLT && p.salario_fixo > 0 && (
-                              <span style={{fontSize:11,color:'var(--text-3)'}}>
-                                {formatBRL(p.salario_fixo)}/mês
-                                {valorHora !== null && <> · {formatBRL(valorHora)}/h</>}
-                              </span>
-                            )}
-                            {!isCLT && p.valor_hora_pj > 0 && (
-                              <span style={{fontSize:11,color:'var(--text-3)'}}>{formatBRL(p.valor_hora_pj)}/h</span>
-                            )}
-                          </div>
-                        </td>
-                        <td className="td-muted">{p.email||'—'}</td>
+                        {!ocultarFinanceiro && (
+                          <td>
+                            <div style={{display:'flex',flexDirection:'column',gap:2}}>
+                              <span style={{
+                                fontSize:11,fontWeight:700,padding:'2px 8px',borderRadius:20,alignSelf:'flex-start',
+                                background:corContrato+'22',color:corContrato,
+                              }}>{p.tipo_contrato||'CLT'}</span>
+                              {isCLT && p.salario_fixo > 0 && (
+                                <span style={{fontSize:11,color:'var(--text-3)'}}>
+                                  {formatBRL(p.salario_fixo)}/mês
+                                  {valorHora !== null && <> · {formatBRL(valorHora)}/h</>}
+                                </span>
+                              )}
+                              {!isCLT && p.valor_hora_pj > 0 && (
+                                <span style={{fontSize:11,color:'var(--text-3)'}}>{formatBRL(p.valor_hora_pj)}/h</span>
+                              )}
+                            </div>
+                          </td>
+                        )}
+                        {!ocultarFinanceiro && <td className="td-muted">{p.email||'—'}</td>}
                         <td><strong style={{color:'var(--text-1)'}}>{turmasProf.length}</strong></td>
                         <td><strong style={{color:'var(--text-1)'}}>{alunosProf}</strong></td>
                         <td>{p.ativo?<span className="badge bg-green">Ativo</span>:<span className="badge bg-gray">Inativo</span>}</td>

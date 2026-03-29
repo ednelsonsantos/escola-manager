@@ -258,7 +258,7 @@ export default function App() {
   const pendentes     = notifAtiva && podeVerFinanceiro ? pagamentos.filter(p=>p.mes===mesAtual&&p.status==='Pendente') : []
   const todayStr      = new Date().toISOString().split('T')[0]
   const eventosHoje   = notifAtiva && podeVerAgenda ? eventos.filter(e=>e.data===todayStr) : []
-  const notifCount    = inadimplentes.length + (pendentes.length>0?1:0) + (eventosHoje.length>0?1:0)
+  const notifCount    = inadimplentes.length + pendentes.length + (eventosHoje.length>0?1:0)
 
   const searchResults = searchQ.length>1 ? [
     ...alunos.filter(a=>a.nome.toLowerCase().includes(searchQ.toLowerCase())).slice(0,4).map(a=>({ type:'aluno', label:a.nome, sub:a.email||'', action:()=>{nav('/alunos');setSearchOpen(false);setSearchQ('')} })),
@@ -312,7 +312,7 @@ export default function App() {
             <button key={item.path} className={`nav-btn${loc.pathname===item.path?' active':''}`} onClick={()=>nav(item.path)}>
               <item.icon/>
               {item.label}
-              {item.label==='Financeiro' && inadimplentes.length>0 && <span className="nav-badge">{inadimplentes.length}</span>}
+              {item.label==='Financeiro' && (inadimplentes.length+pendentes.length)>0 && <span className="nav-badge">{inadimplentes.length+pendentes.length}</span>}
               {item.label==='Agenda'     && eventosHoje.length>0   && <span className="nav-badge" style={{background:'var(--blue)'}}>{eventosHoje.length}</span>}
             </button>
           ))}

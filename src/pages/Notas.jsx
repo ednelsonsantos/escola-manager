@@ -13,7 +13,7 @@ import {
   BookOpen, Download, RefreshCw, Search, ChevronDown,
   CheckCircle, AlertTriangle, FileText, Users, Award,
   TrendingUp, TrendingDown, Minus, Save, X, Info,
-  GraduationCap, Printer,
+  GraduationCap, Printer, Eye, EyeOff,
 } from 'lucide-react'
 import { formatDate } from '../context/AppContext.jsx'
 
@@ -46,9 +46,9 @@ function corConceito(conceito) {
 
 // Calcula média ponderada: se tiver recuperação, usa max(media_base, recuperacao)
 function calcularMedia(parcial, final, recuperacao) {
-  const p = parcial   !== '' && parcial   !== null ? Number(parcial)   : null
-  const f = final     !== '' && final     !== null ? Number(final)     : null
-  const r = recuperacao !== '' && recuperacao !== null ? Number(recuperacao) : null
+  const p = parcial      != null && parcial      !== '' ? Number(parcial)      : null
+  const f = final        != null && final        !== '' ? Number(final)        : null
+  const r = recuperacao  != null && recuperacao  !== '' ? Number(recuperacao)  : null
 
   if (p === null && f === null) return null
   // Média simples entre parcial e final
@@ -269,6 +269,16 @@ export default function Notas() {
   const [gerandoPDF,  setGerandoPDF]  = useState(false)
   const [escola,      setEscola]      = useState('')
 
+  // ── Visão Geral ───────────────────────────────────────────────────────────────
+  const [modoGeral,          setModoGeral]          = useState(false)
+  const [notasGeral,         setNotasGeral]         = useState([])
+  const [loadingGeral,       setLoadingGeral]       = useState(false)
+  const [professores,        setProfessores]        = useState([])
+  const [filtroProf,         setFiltroProf]         = useState('')
+  const [filtroPeriodoGeral, setFiltroPeriodoGeral] = useState('')
+  const [abaGeral,           setAbaGeral]           = useState(null)
+  const [buscaGeral,         setBuscaGeral]         = useState('')
+
   function showToast(msg, tipo = 'success') {
     setToast({ msg, tipo })
     setTimeout(() => setToast(null), 3200)
@@ -303,6 +313,76 @@ export default function Notas() {
   }, [turmaSel, periodoSel])
 
   useEffect(() => { carregar() }, [carregar])
+
+  // Carrega todas as notas + professores quando visão geral é ativada
+  useEffect(() => {
+    if (!modoGeral) return
+    setLoadingGeral(true)
+    Promise.all([
+      window.electronAPI.notasListar({}).catch(() => []),
+      window.electronAPI.professoresListar({}).catch(() => []),
+    ]).then(([nt, pf]) => {
+      const notas = nt || []
+      setNotasGeral(notas)
+      setProfessores(pf || [])
+      // Seleciona automaticamente a aba com lançamento mais recente
+      const porTurma = [...new Map(
+        notas.map(n => [n.turma_ls_id, n.criado_em || ''])
+      ).entries()].sort((a, b) => b[1].localeCompare(a[1]))
+      setAbaGeral(porTurma[0]?.[0] ?? null)
+      setLoadingGeral(false)
+    })
+  }, [modoGeral])
+
+  // Períodos únicos presentes nas notas gerais (para o filtro)
+  const periodosDisponiveis = useMemo(() =>
+    [...new Set(notasGeral.map(n => n.periodo))]
+      .sort((a, b) => PERIODOS.indexOf(a) - PERIODOS.indexOf(b))
+  , [notasGeral])
+
+  // Grupos da visão geral: [{turmaId, turmaCodigo, ultimaAtiv, periodos:[{periodo, notas[]}]}]
+  const gruposGeral = useMemo(() => {
+    if (!modoGeral) return []
+    let nts = notasGeral
+
+    if (filtroProf) {
+      const tIds = new Set(turmas.filter(t => String(t.professor_id) === filtroProf).map(t => t.id))
+      nts = nts.filter(n => tIds.has(n.turma_ls_id))
+    }
+    if (filtroPeriodoGeral) nts = nts.filter(n => n.periodo === filtroPeriodoGeral)
+    if (buscaGeral) {
+      const q = buscaGeral.toLowerCase()
+      nts = nts.filter(n => n.aluno_nome?.toLowerCase().includes(q))
+    }
+
+    const mapaT = new Map()
+    nts.forEach(n => {
+      if (!mapaT.has(n.turma_ls_id)) {
+        mapaT.set(n.turma_ls_id, {
+          turmaId:    n.turma_ls_id,
+          turmaCodigo: n.turma_codigo,
+          ultimaAtiv: n.criado_em || '',
+          periodos:   new Map(),
+        })
+      }
+      const t = mapaT.get(n.turma_ls_id)
+      if ((n.criado_em || '') > t.ultimaAtiv) t.ultimaAtiv = n.criado_em
+      if (!t.periodos.has(n.periodo)) t.periodos.set(n.periodo, [])
+      t.periodos.get(n.periodo).push(n)
+    })
+
+    return [...mapaT.values()]
+      .map(t => ({
+        ...t,
+        periodos: [...t.periodos.entries()]
+          .map(([periodo, notas]) => ({
+            periodo,
+            notas: notas.sort((a, b) => a.aluno_nome.localeCompare(b.aluno_nome)),
+          }))
+          .sort((a, b) => PERIODOS.indexOf(a.periodo) - PERIODOS.indexOf(b.periodo)),
+      }))
+      .sort((a, b) => b.ultimaAtiv.localeCompare(a.ultimaAtiv))
+  }, [modoGeral, notasGeral, filtroProf, filtroPeriodoGeral, buscaGeral, turmas])
 
   // Mescla notas salvas com alterações pendentes
   const notasEfetivas = useMemo(() => {
@@ -450,8 +530,8 @@ export default function Notas() {
   return (
     <div className="fade-up">
 
-      {/* ── KPIs ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(170px, 1fr))', gap: 10, marginBottom: 18 }}>
+      {/* ── KPIs (modo normal) ── */}
+      {!modoGeral && <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(170px, 1fr))', gap: 10, marginBottom: 18 }}>
         {[
           { label: 'Total de alunos', value: alunos.length,      icon: Users,       color: '#5b9cf6' },
           { label: 'Aprovados',       value: stats.aprovados,    icon: TrendingUp,  color: '#63dcaa' },
@@ -479,66 +559,283 @@ export default function Notas() {
             </div>
           </div>
         ))}
-      </div>
+      </div>}
 
       {/* ── Toolbar ── */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 14, alignItems: 'center', flexWrap: 'wrap' }}>
 
-        {/* Seletor de turma */}
-        <select className="select" style={{ fontWeight: 600, height: 36, minWidth: 200 }}
-          value={turmaSel} onChange={e => setTurmaSel(e.target.value)}>
-          <option value="">Selecionar turma</option>
-          {turmas.filter(t => t.ativa).sort((a,b) => a.codigo.localeCompare(b.codigo)).map(t => (
-            <option key={t.id} value={t.id}>{t.codigo} — {t.idioma}</option>
-          ))}
-        </select>
-
-        {/* Seletor de período */}
-        <select className="select" style={{ height: 36, minWidth: 160 }}
-          value={periodoSel} onChange={e => setPeriodoSel(e.target.value)}>
-          {PERIODOS.map(p => <option key={p} value={p}>{p}</option>)}
-        </select>
-
-        {/* Busca */}
-        <div style={{ position: 'relative', flex: 1, minWidth: 160 }}>
-          <Search size={13} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-4)' }}/>
-          <input className="input" style={{ paddingLeft: 30, height: 36 }} placeholder="Buscar aluno…"
-            value={busca} onChange={e => setBusca(e.target.value)}/>
-        </div>
-
-        {/* Ações */}
-        <button className="btn btn-secondary btn-sm" onClick={carregar} title="Atualizar">
-          <RefreshCw size={13}/>
-        </button>
-        <button className="btn btn-secondary btn-sm" onClick={handleExportarCSV} title="Exportar CSV">
-          <Download size={13}/><span style={{ fontSize: 12, marginLeft: 3 }}>CSV</span>
-        </button>
-        <button className="btn btn-secondary btn-sm" onClick={handleGerarPDF} disabled={gerandoPDF || !turmaSel} title="Gerar Ata PDF">
-          <Printer size={13}/>
-          <span style={{ fontSize: 12, marginLeft: 3 }}>{gerandoPDF ? 'Gerando…' : 'Ata PDF'}</span>
+        {/* Toggle visão geral */}
+        <button
+          className={`btn btn-sm ${modoGeral ? 'btn-primary' : 'btn-secondary'}`}
+          style={{ gap: 6, flexShrink: 0 }}
+          onClick={() => { setModoGeral(v => !v); setFiltroProf(''); setFiltroPeriodoGeral(''); setBuscaGeral('') }}
+          title={modoGeral ? 'Voltar ao modo por turma' : 'Ver todas as turmas com notas'}
+        >
+          {modoGeral ? <EyeOff size={13}/> : <Eye size={13}/>}
+          <span style={{ fontSize: 12 }}>Visão Geral</span>
         </button>
 
-        {/* Salvar alterações */}
-        {temAlteracoes && (
-          <button className="btn btn-primary btn-sm" onClick={handleSalvar} disabled={salvando}>
-            <Save size={13}/>
-            <span style={{ fontSize: 12, marginLeft: 3 }}>
-              {salvando ? 'Salvando…' : `Salvar (${Object.keys(alteracoes).length})`}
-            </span>
-          </button>
+        {modoGeral ? (
+          <>
+            {/* Busca geral */}
+            <div style={{ position: 'relative', flex: 1, minWidth: 160 }}>
+              <Search size={13} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-4)' }}/>
+              <input className="input" style={{ paddingLeft: 30, height: 36 }} placeholder="Buscar aluno…"
+                value={buscaGeral} onChange={e => setBuscaGeral(e.target.value)}/>
+            </div>
+            {/* Filtro professor */}
+            <select className="select" style={{ height: 36, minWidth: 160 }}
+              value={filtroProf} onChange={e => setFiltroProf(e.target.value)}>
+              <option value="">Todos os professores</option>
+              {professores.map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}
+            </select>
+            {/* Filtro período */}
+            <select className="select" style={{ height: 36, minWidth: 150 }}
+              value={filtroPeriodoGeral} onChange={e => setFiltroPeriodoGeral(e.target.value)}>
+              <option value="">Todos os períodos</option>
+              {periodosDisponiveis.map(p => <option key={p} value={p}>{p}</option>)}
+            </select>
+            {/* Refresh */}
+            <button className="btn btn-secondary btn-sm"
+              onClick={() => setModoGeral(v => { if (v) { setNotasGeral([]); setAbaGeral(null) } return v })}
+              title="Recarregar" style={{flexShrink:0}}>
+              <RefreshCw size={13}/>
+            </button>
+          </>
+        ) : (
+          <>
+            {/* Seletor de turma */}
+            <select className="select" style={{ fontWeight: 600, height: 36, minWidth: 200 }}
+              value={turmaSel} onChange={e => setTurmaSel(e.target.value)}>
+              <option value="">Selecionar turma</option>
+              {turmas.filter(t => t.ativa).sort((a,b) => a.codigo.localeCompare(b.codigo)).map(t => (
+                <option key={t.id} value={t.id}>{t.codigo} — {t.idioma}</option>
+              ))}
+            </select>
+            {/* Seletor de período */}
+            <select className="select" style={{ height: 36, minWidth: 160 }}
+              value={periodoSel} onChange={e => setPeriodoSel(e.target.value)}>
+              {PERIODOS.map(p => <option key={p} value={p}>{p}</option>)}
+            </select>
+            {/* Busca */}
+            <div style={{ position: 'relative', flex: 1, minWidth: 160 }}>
+              <Search size={13} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-4)' }}/>
+              <input className="input" style={{ paddingLeft: 30, height: 36 }} placeholder="Buscar aluno…"
+                value={busca} onChange={e => setBusca(e.target.value)}/>
+            </div>
+            {/* Ações */}
+            <button className="btn btn-secondary btn-sm" onClick={carregar} title="Atualizar">
+              <RefreshCw size={13}/>
+            </button>
+            <button className="btn btn-secondary btn-sm" onClick={handleExportarCSV} title="Exportar CSV">
+              <Download size={13}/><span style={{ fontSize: 12, marginLeft: 3 }}>CSV</span>
+            </button>
+            <button className="btn btn-secondary btn-sm" onClick={handleGerarPDF} disabled={gerandoPDF || !turmaSel} title="Gerar Ata PDF">
+              <Printer size={13}/>
+              <span style={{ fontSize: 12, marginLeft: 3 }}>{gerandoPDF ? 'Gerando…' : 'Ata PDF'}</span>
+            </button>
+            {/* Salvar alterações */}
+            {temAlteracoes && (
+              <button className="btn btn-primary btn-sm" onClick={handleSalvar} disabled={salvando}>
+                <Save size={13}/>
+                <span style={{ fontSize: 12, marginLeft: 3 }}>
+                  {salvando ? 'Salvando…' : `Salvar (${Object.keys(alteracoes).length})`}
+                </span>
+              </button>
+            )}
+          </>
         )}
       </div>
 
       {/* ── Aviso de alterações pendentes ── */}
-      {temAlteracoes && (
+      {!modoGeral && temAlteracoes && (
         <div className="alert alert-info" style={{ marginBottom: 14 }}>
           <Info size={14}/>
           Você tem <strong>{Object.keys(alteracoes).length}</strong> nota(s) alterada(s) não salvas. Clique em "Salvar" para confirmar.
         </div>
       )}
 
-      {/* ── Tabela de notas ── */}
-      {!turmaSel ? (
+      {/* ══════════════════════════════════════════════════════════════════════
+          VISÃO GERAL — todas as turmas com notas lançadas
+          ══════════════════════════════════════════════════════════════════════ */}
+      {modoGeral && (
+        loadingGeral ? (
+          <div className="card" style={{ padding: 40, textAlign: 'center', color: 'var(--text-3)' }}>
+            <RefreshCw size={24} style={{ opacity: .4, animation: 'spin 1s linear infinite' }}/>
+            <p style={{ marginTop: 10, fontSize: 13 }}>Carregando notas…</p>
+          </div>
+        ) : gruposGeral.length === 0 ? (
+          <div className="card" style={{ padding: 48, textAlign: 'center' }}>
+            <BookOpen size={40} style={{ opacity: .2, marginBottom: 12, color: 'var(--text-3)' }}/>
+            <p style={{ fontSize: 14, color: 'var(--text-2)', margin: 0 }}>
+              {notasGeral.length === 0
+                ? 'Nenhuma nota lançada ainda.'
+                : 'Nenhum resultado para os filtros selecionados.'}
+            </p>
+          </div>
+        ) : (
+          <div>
+            {/* ── Abas de turmas (scroll horizontal) ── */}
+            <div style={{
+              display: 'flex', gap: 4, overflowX: 'auto', paddingBottom: 2,
+              borderBottom: '2px solid var(--border)', marginBottom: 18,
+              scrollbarWidth: 'thin',
+            }}>
+              {gruposGeral.map(g => {
+                const ativa = abaGeral === g.turmaId
+                const turmaInfo = turmas.find(t => t.id === g.turmaId)
+                const totalNotas = g.periodos.reduce((s, p) => s + p.notas.length, 0)
+                return (
+                  <button
+                    key={g.turmaId}
+                    onClick={() => setAbaGeral(g.turmaId)}
+                    style={{
+                      flexShrink: 0,
+                      padding: '7px 14px', borderRadius: '7px 7px 0 0',
+                      border: '1.5px solid', borderBottom: ativa ? '2px solid var(--bg-card)' : '1.5px solid var(--border)',
+                      marginBottom: ativa ? -2 : 0,
+                      borderColor: ativa ? 'var(--accent)' : 'var(--border)',
+                      background: ativa ? 'var(--accent-dim)' : 'var(--bg-hover)',
+                      color: ativa ? 'var(--accent)' : 'var(--text-2)',
+                      fontFamily: "'Syne',sans-serif", fontWeight: 700, fontSize: 12,
+                      cursor: 'pointer', transition: 'all .12s',
+                      display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1,
+                    }}
+                  >
+                    <span>{g.turmaCodigo}</span>
+                    <span style={{ fontSize: 10, fontWeight: 400, opacity: .7 }}>
+                      {turmaInfo?.idioma || ''} · {totalNotas} aluno{totalNotas !== 1 ? 's' : ''}
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+
+            {/* ── Conteúdo da aba selecionada ── */}
+            {(() => {
+              const grupo = gruposGeral.find(g => g.turmaId === abaGeral)
+              if (!grupo) return null
+              const turmaInfo = turmas.find(t => t.id === grupo.turmaId)
+
+              // KPIs consolidados da turma (todos os períodos)
+              const todasNotas  = grupo.periodos.flatMap(p => p.notas)
+              const mediasKpi   = todasNotas.map(n => calcularMedia(n.nota_parcial, n.nota_final, n.nota_recuperacao)).filter(m => m !== null)
+              const aprovKpi    = mediasKpi.filter(m => m >= 5).length
+              const reprovKpi   = mediasKpi.filter(m => m < 5).length
+              const mediaKpi    = mediasKpi.length ? mediasKpi.reduce((s, m) => s + m, 0) / mediasKpi.length : null
+
+              return (
+                <div>
+                  {/* KPIs da turma */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 10, marginBottom: 18 }}>
+                    {[
+                      { label: 'Total de alunos', value: todasNotas.length,    color: '#5b9cf6' },
+                      { label: 'Aprovados',        value: aprovKpi,            color: '#63dcaa' },
+                      { label: 'Reprovados',       value: reprovKpi,           color: '#f2617a' },
+                      { label: 'Média geral',
+                        value: mediaKpi !== null ? Number(mediaKpi).toFixed(1) : '—',
+                        color: mediaKpi === null ? '#6b7280' : mediaKpi >= 7 ? '#63dcaa' : mediaKpi >= 5 ? '#f5c542' : '#f2617a',
+                      },
+                      { label: 'Professor',
+                        value: turmaInfo?.professor_nome || '—',
+                        color: 'var(--text-2)', small: true,
+                      },
+                    ].map(({ label, value, color, small }) => (
+                      <div key={label} className="card" style={{ padding: '11px 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <div>
+                          <div style={{
+                            fontFamily: "'Syne',sans-serif",
+                            fontSize: small ? 13 : 20, fontWeight: 800,
+                            color, lineHeight: 1,
+                          }}>
+                            {value}
+                          </div>
+                          <div style={{ fontSize: 10, color: 'var(--text-3)', marginTop: 2 }}>{label}</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Uma seção por período */}
+                  {grupo.periodos.map(({ periodo, notas }) => {
+                    const medias  = notas.map(n => calcularMedia(n.nota_parcial, n.nota_final, n.nota_recuperacao))
+                    const aprov   = medias.filter(m => m !== null && m >= 5).length
+                    const reprov  = medias.filter(m => m !== null && m <  5).length
+                    const semNota = medias.filter(m => m === null).length
+
+                    return (
+                      <div key={periodo} className="tbl-wrap" style={{ marginBottom: 16 }}>
+                        <div className="tbl-top">
+                          <span className="tbl-title" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <BookOpen size={13} style={{ color: 'var(--accent)' }}/>
+                            {grupo.turmaCodigo} — {periodo}
+                          </span>
+                          <div style={{ display: 'flex', gap: 6 }}>
+                            <span className="badge bg-green">{aprov} aprov.</span>
+                            <span className="badge bg-red">{reprov} reprov.</span>
+                            {semNota > 0 && <span className="badge bg-yellow">{semNota} sem nota</span>}
+                          </div>
+                        </div>
+                        <table>
+                          <thead>
+                            <tr style={{ background: 'var(--bg-hover)' }}>
+                              {['#','Aluno','Parcial','Final','Rec.','Média','Conceito','Situação'].map(h => (
+                                <th key={h} style={{ padding: '8px 14px', textAlign: h === 'Aluno' ? 'left' : 'center', fontSize: 11, color: 'var(--text-3)', fontWeight: 600 }}>{h}</th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {notas.map((n, idx) => {
+                              const media = calcularMedia(n.nota_parcial, n.nota_final, n.nota_recuperacao)
+                              const conc  = n.conceito || calcularConceito(media)
+                              return (
+                                <tr key={n.id || idx} style={{ borderTop: '1px solid var(--border)' }}>
+                                  <td style={{ padding: '7px 14px', fontSize: 12, color: 'var(--text-3)', textAlign: 'center' }}>{idx + 1}</td>
+                                  <td style={{ padding: '7px 14px', fontWeight: 600, fontSize: 13 }}>{n.aluno_nome}</td>
+                                  {[n.nota_parcial, n.nota_final, n.nota_recuperacao].map((v, i) => (
+                                    <td key={i} style={{ padding: '7px 14px', textAlign: 'center', fontSize: 13, fontWeight: 700, color: 'var(--text-2)' }}>
+                                      {fmtNota(v)}
+                                    </td>
+                                  ))}
+                                  <td style={{ padding: '7px 14px', textAlign: 'center' }}>
+                                    <span style={{
+                                      fontFamily: "'Syne',sans-serif", fontSize: 15, fontWeight: 800,
+                                      color: media === null ? 'var(--text-4)' : media >= 7 ? '#63dcaa' : media >= 5 ? '#f5c542' : '#f2617a',
+                                    }}>
+                                      {media !== null ? Number(media).toFixed(1) : '—'}
+                                    </span>
+                                  </td>
+                                  <td style={{ padding: '7px 14px', textAlign: 'center' }}>
+                                    {conc
+                                      ? <span style={{ fontFamily: "'Syne',sans-serif", fontSize: 14, fontWeight: 900, color: corConceito(conc), background: corConceito(conc) + '18', border: `1.5px solid ${corConceito(conc)}40`, borderRadius: 6, padding: '1px 8px' }}>{conc}</span>
+                                      : <span style={{ color: 'var(--text-4)', fontSize: 13 }}>—</span>
+                                    }
+                                  </td>
+                                  <td style={{ padding: '7px 14px', textAlign: 'center' }}>
+                                    {media === null
+                                      ? <span style={{ fontSize: 11, color: 'var(--text-4)' }}>—</span>
+                                      : media >= 5
+                                        ? <span style={{ fontSize: 11, fontWeight: 700, color: '#63dcaa', display: 'flex', alignItems: 'center', gap: 3, justifyContent: 'center' }}><CheckCircle size={11}/> Aprovado</span>
+                                        : <span style={{ fontSize: 11, fontWeight: 700, color: '#f2617a', display: 'flex', alignItems: 'center', gap: 3, justifyContent: 'center' }}><AlertTriangle size={11}/> Reprovado</span>
+                                    }
+                                  </td>
+                                </tr>
+                              )
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    )
+                  })}
+                </div>
+              )
+            })()}
+          </div>
+        )
+      )}
+
+      {/* ── Tabela de notas (modo normal) ── */}
+      {!modoGeral && (!turmaSel ? (
         <div className="card" style={{ padding: 48, textAlign: 'center' }}>
           <GraduationCap size={40} style={{ opacity: .2, marginBottom: 12, color: 'var(--text-3)' }}/>
           <p style={{ fontSize: 14, color: 'var(--text-2)', margin: 0 }}>Selecione uma turma para lançar as notas.</p>
@@ -723,7 +1020,7 @@ export default function Notas() {
             )}
           </div>
         </div>
-      )}
+      ))}
 
       {/* Toast */}
       {toast && (

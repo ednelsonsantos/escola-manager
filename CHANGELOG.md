@@ -4,6 +4,34 @@ Formato: [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/) · [SemVer]
 
 ---
 
+## [5.14.0] — 2026-03
+
+### Adicionado
+- **Visão Geral de Notas** — toggle no módulo Notas para ver todas as turmas com notas lançadas em abas horizontais (ordenadas por atividade mais recente), filtros por professor e por período, busca por nome de aluno; vista somente leitura independente do tipo de avaliação (bimestral, semestral, anual etc.)
+- **Seed scripts de desenvolvimento** — utilitários para popular dados de teste: `seed_financeiro.js` (pagamentos via localStorage), `seed_notas.js` (turma + 10 alunos + notas 1º Bimestre), `seed_notas_extra.js` (notas em turmas existentes), `seed_usuarios_prof.js` (3 usuários com perfil Professor vinculados a professores existentes)
+
+### Corrigido
+- **Notas — NaN na coluna Média** — `calcularMedia()` usava `!== null` (strict) que não capturava `undefined`; substituído por `!= null` (loose); células sem nota exibem `—` em vez de `NaN`
+- **Notificações — badge de ícone** — contagem agora soma cada pagamento pendente individualmente (antes, todos os pendentes valiam 1); total = atrasados + pendentes + eventos
+- **Notificações — badge do menu Financeiro** — incluía apenas atrasados; agora inclui pendentes + atrasados combinados
+
+### Segurança / Privacidade
+- **Alunos** — mensalidade oculta (tabela, ficha individual, histórico de pagamentos) para perfis sem `perm_financeiro`
+- **Cursos → Professores** — colunas Contrato (tipo CLT/PJ, salário, valor/hora) e E-mail ocultas para perfis sem `perm_financeiro`
+- **Dashboard** — card "Receita do mês", gráfico "Faturamento Mensal" e valores monetários em "Movimentações Recentes" ocultados para perfis sem `perm_financeiro`; sub do card "Inadimplentes" substitui valor R$ por contagem neutra
+- **Regra geral** — qualquer perfil com `perm_financeiro = 0` não visualiza nenhum valor monetário nos módulos Alunos, Cursos e Dashboard
+
+---
+
+## [5.13.0] — 2026-03
+
+### Adicionado
+- **Frequência redesenhada** — chamada exibida em grid de cards horizontais (7 aulas/linha, responsivo), agrupados por dia do calendário com rótulo de data; scroll horizontal elegante
+- **Substituição de professor** — seleção de professor substituto diretamente na aula com validação de conflito de horário; registro no audit_log; badge visual na lista de aulas
+- **Folha de Pagamento CLT/PJ** — geração mensal por professor: CLT recebe salário fixo com desconto proporcional por horas não cumpridas em relação à carga horária mensal; PJ recebe por hora ministrada calculado automaticamente ao abrir o módulo
+
+---
+
 ## [5.12.1] — 2026-03
 
 ### Corrigido

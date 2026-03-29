@@ -1,4 +1,4 @@
-# 🎓 Escola Manager v5.13
+# 🎓 Escola Manager v5.14
 
 Sistema desktop completo para gestão de escolas de idiomas.
 **React 18 + Electron 29 + SQLite + PizZip · GPL-3.0 · Criado por Ednelson Santos**
@@ -25,7 +25,14 @@ npm run build     # gera instalador .exe para Windows
 | `admin` | admin123 | Administrador |
 | `secretaria` | sec123 | Secretaria |
 | `demo` | demo | Demonstração |
-| `professor` | profe123 | Professor |
+
+**Professores de teste** (criados com `seed_usuarios_prof.js`):
+
+| Usuário | Senha | Professor vinculado |
+|---|---|---|
+| `carmen` | carmen | Carmen López |
+| `james` | james | James Wilson |
+| `Klaus` | Klaus | Klaus Fischer |
 
 ---
 
@@ -55,7 +62,7 @@ npm run build     # gera instalador .exe para Windows
 | **Fluxo de Caixa** | Lançamentos manuais de entradas/saídas, gráfico mensal de barras, resumo por categoria |
 | **Grade de Horários** | Grade visual semanal das turmas por dia da semana, cores por idioma |
 | **Carga Horária** | Horas ministradas por professor com detalhamento por turma e exportação CSV |
-| **Notas** | Lançamento de notas por turma/período, cálculo automático de média e conceito, ata em PDF |
+| **Notas** | Lançamento de notas por turma/período, cálculo automático de média e conceito, ata em PDF; **Visão Geral** com todas as turmas em abas, filtros por professor e período |
 | **Reserva de Salas** | Gestão de espaços, reservas com detecção de conflito, calendário semanal |
 | **Inadimplentes** | Lista filtrada de alunos com atraso, envio de cobrança via Recados e WhatsApp em lote |
 | **Estoque** | Cadastro de materiais didáticos, movimentações com histórico, alertas de estoque mínimo |
@@ -81,6 +88,8 @@ Cada perfil vê apenas as abas relevantes ao seu papel:
 | Visualizador | ✅ | — | — | ✅ |
 
 Notificações de inadimplência e badges de cobrança só aparecem para perfis com acesso ao módulo Financeiro.
+
+> **Privacidade financeira:** perfis sem `perm_financeiro` não visualizam mensalidades de alunos, salários/contratos de professores, receita, faturamento mensal nem valores de pagamento em nenhum módulo.
 
 ---
 

@@ -81,6 +81,15 @@ coverage/
 # ── TypeScript ────────────────────────────────────────────────────────────────
 *.tsbuildinfo
 
+# ── Claude Code (memória local do assistente IA) ─────────────────────────────
+.claude/
+
+# ── Scripts de teste/seed (utilitários de desenvolvimento, não versionados) ──
+seed_*.js
+check_*.js
+gerar_*.js
+seed_pags.json
+
 # ── Electron — arquivos gerados no desenvolvimento ───────────────────────────
 # Necessário para reconstrução dos módulos nativos (better-sqlite3)
 # Esses ficam dentro de node_modules (já ignorado acima) e não no repo
