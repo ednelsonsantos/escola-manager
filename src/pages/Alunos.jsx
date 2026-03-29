@@ -70,7 +70,13 @@ function AlunoForm({ data, onChange, turmas, erros={} }) {
 }
 
 function AlunoDetail({ aluno, turmas, professores, pagamentos, onClose, onEdit }) {
-  const turma = turmas.find(t=>t.id===aluno.turmaId)
+  const turmasDoAluno = Array.isArray(aluno.matriculas) && aluno.matriculas.length > 0
+    ? aluno.matriculas.map(m => {
+        const t = turmas.find(t => t.id === Number(m.turmaId))
+        return t ? { ...t, mensalidade: m.mensalidade } : null
+      }).filter(Boolean)
+    : [turmas.find(t => t.id === aluno.turmaId)].filter(Boolean)
+  const turma = turmasDoAluno[0]
   const prof  = professores.find(p=>p.id===turma?.professorId)
   const pgAluno = pagamentos.filter(p=>p.alunoId===aluno.id).slice().reverse().slice(0,8)
 
@@ -102,16 +108,49 @@ function AlunoDetail({ aluno, turmas, professores, pagamentos, onClose, onEdit }
             ['Telefone',   aluno.telefone||'—'],
             ['Nascimento', formatDate(aluno.dataNasc)],
             ['Matrícula',  formatDate(aluno.dataMatricula)],
-            ['Turma',      turma?.codigo||'—'],
-            ['Horário',    turma?.horario||'—'],
-            ['Professor',  prof?.nome||'—'],
-            ['Mensalidade',formatBRL(aluno.mensalidade)],
           ].map(([k,v])=>(
             <div key={k} className="detail-row">
               <span className="detail-key">{k}</span>
-              <span className="detail-val" style={k==='Mensalidade'?{color:'var(--accent)',fontWeight:600}:{}}>{v}</span>
+              <span className="detail-val">{v}</span>
             </div>
           ))}
+          {/* Cursos — um bloco por turma */}
+          {turmasDoAluno.length === 0 ? (
+            <div className="detail-row">
+              <span className="detail-key">Turma</span>
+              <span className="detail-val">—</span>
+            </div>
+          ) : turmasDoAluno.map((t, idx) => {
+            const p = professores.find(pr => pr.id === t.professorId)
+            return (
+              <div key={t.id} style={{marginTop: idx===0?0:8, paddingTop: idx===0?0:8, borderTop: idx===0?'none':'1px dashed var(--border)'}}>
+                <div className="detail-row">
+                  <span className="detail-key">{turmasDoAluno.length > 1 ? `Turma ${idx+1}` : 'Turma'}</span>
+                  <span className="detail-val">{t.codigo} — {t.idioma} {t.nivel}</span>
+                </div>
+                <div className="detail-row">
+                  <span className="detail-key">Horário</span>
+                  <span className="detail-val">{t.horario||'—'}</span>
+                </div>
+                <div className="detail-row">
+                  <span className="detail-key">Professor</span>
+                  <span className="detail-val">{p?.nome||'—'}</span>
+                </div>
+                {t.mensalidade != null && (
+                  <div className="detail-row">
+                    <span className="detail-key">Mensalidade</span>
+                    <span className="detail-val" style={{color:'var(--accent)',fontWeight:600}}>{formatBRL(t.mensalidade)}</span>
+                  </div>
+                )}
+              </div>
+            )
+          })}
+          {turmasDoAluno.length === 0 && (
+            <div className="detail-row">
+              <span className="detail-key">Mensalidade</span>
+              <span className="detail-val" style={{color:'var(--accent)',fontWeight:600}}>{formatBRL(aluno.mensalidade)}</span>
+            </div>
+          )}
           {aluno.obs && (
             <div className="detail-row">
               <span className="detail-key">Obs.</span>
@@ -207,8 +246,11 @@ export default function Alunos() {
   const filtered = useMemo(() => {
     const q = search.toLowerCase()
     return alunos.filter(a => {
-      const t = turmas.find(t=>t.id===a.turmaId)
-      const matchQ = !q || a.nome.toLowerCase().includes(q) || a.email?.toLowerCase().includes(q) || t?.idioma?.toLowerCase().includes(q)
+      const turmasDoAluno = Array.isArray(a.matriculas) && a.matriculas.length > 0
+        ? a.matriculas.map(m => turmas.find(t => t.id === Number(m.turmaId))).filter(Boolean)
+        : [turmas.find(t => t.id === a.turmaId)].filter(Boolean)
+      const matchQ = !q || a.nome.toLowerCase().includes(q) || a.email?.toLowerCase().includes(q) ||
+        turmasDoAluno.some(t => t.idioma?.toLowerCase().includes(q) || t.codigo?.toLowerCase().includes(q))
       const matchS = fStatus==='Todos' || a.status===fStatus
       const matchT = fTurma==='Todos'  || t?.idioma===fTurma
       return matchQ && matchS && matchT
@@ -302,7 +344,10 @@ export default function Alunos() {
                 </tr></thead>
                 <tbody>
                   {paginated.map((a,i) => {
-                    const t    = turmas.find(t=>t.id===a.turmaId)
+                    const turmasDoAluno = Array.isArray(a.matriculas) && a.matriculas.length > 0
+                      ? a.matriculas.map(m => turmas.find(t => t.id === Number(m.turmaId))).filter(Boolean)
+                      : [turmas.find(t => t.id === a.turmaId)].filter(Boolean)
+                    const t    = turmasDoAluno[0]
                     const pgAt = pagamentos.find(p=>p.alunoId===a.id && p.mes===mesAtualDinamico())
                     const sit  = pgAt?.status || 'Sem pgto'
                     const idx  = (safePage-1)*PER_PAGE + i
@@ -320,7 +365,18 @@ export default function Alunos() {
                             </div>
                           </div>
                         </td>
-                        <td>{t ? <><span className="badge bg-blue">{t.codigo}</span><div className="td-muted" style={{marginTop:2}}>{t.horario}</div></> : '—'}</td>
+                        <td>
+                          {turmasDoAluno.length === 0 ? '—' : (
+                            <div style={{display:'flex',flexDirection:'column',gap:3}}>
+                              {turmasDoAluno.map(t => (
+                                <div key={t.id}>
+                                  <span className="badge bg-blue">{t.codigo}</span>
+                                  <div className="td-muted" style={{marginTop:1,fontSize:10}}>{t.horario}</div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </td>
                         <td className="td-mono">{formatBRL(a.mensalidade)}</td>
                         <td>
                           {sit==='Pago'     && <span className="badge bg-green"><span className="bdot"/>Em dia</span>}

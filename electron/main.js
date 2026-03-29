@@ -203,6 +203,7 @@ ipcMain.handle('freq:deletarAula',            (_, id, req)           => safe(() 
 ipcMain.handle('freq:getPresencas',           (_, aulaId)            => safe(() => db.getPresencas(aulaId), []))
 ipcMain.handle('freq:salvarPresencas',        (_, aulaId, lista, req)=> safe(() => db.salvarPresencas(aulaId, lista, req||{}), { ok:false }))
 ipcMain.handle('freq:estatisticasFrequencia', (_, turmaLsId)         => safe(() => db.estatisticasFrequencia(turmaLsId), { totalAulas:0, alunos:[] }))
+ipcMain.handle('freq:relatorioAvancado',      (_, filtros)           => safe(() => db.relatorioFrequenciaAvancado(filtros||{}), { totalAulas:0, alunos:[], professoresStats:[], aulas:[] }))
 ipcMain.handle('freq:registrarAusencia',      (_, dados, req)        => safe(() => db.registrarAusenciaProfessor(dados, req||{}), { ok:false }))
 
 // ── Recados (v5.6) ────────────────────────────────────────────────────────────
@@ -331,6 +332,12 @@ ipcMain.handle('professores:criar',        (_, dados, req)       => safe(() => d
 ipcMain.handle('professores:editar',       (_, id, dados, req)   => safe(() => db.editarProfessor(id, dados, req || {}), { ok: false }))
 ipcMain.handle('professores:deletar',      (_, id, req)          => safe(() => db.deletarProfessor(id, req || {}), { ok: false }))
 ipcMain.handle('professores:cargaHoraria', (_, filtros)          => safe(() => db.cargaHorariaProfessores(filtros || {}), []))
+
+// ── Folha de Pagamento (v5.12) ────────────────────────────────────────────────
+ipcMain.handle('folha:listar',  (_, filtros)        => safe(() => db.listarFolhas(filtros || {}), []))
+ipcMain.handle('folha:gerar',   (_, dados, req)     => safe(() => db.gerarFolha(dados, req || {}), { ok: false }))
+ipcMain.handle('folha:editar',  (_, id, dados, req) => safe(() => db.editarFolha(id, dados, req || {}), { ok: false }))
+ipcMain.handle('folha:deletar', (_, id, req)        => safe(() => db.deletarFolha(id, req || {}), { ok: false }))
 
 // ── Fluxo de Caixa (v5.8) ────────────────────────────────────────────────────
 ipcMain.handle('fc:listar',          (_, filtros)        => safe(() => db.listarFluxo(filtros || {}), []))

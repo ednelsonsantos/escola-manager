@@ -94,19 +94,19 @@ function ModalItem({ item, onSave, onClose }) {
             </div>
             <div className="field">
               <label>Quantidade inicial</label>
-              <input className="input" type="number" min="0" value={form.quantidade} onChange={e => f('quantidade', Number(e.target.value))}/>
+              <input className="input" type="number" min="0" value={form.quantidade} onChange={e => f('quantidade', e.target.value)}/>
             </div>
             <div className="field">
               <label>Estoque mínimo</label>
-              <input className="input" type="number" min="0" value={form.minimo} onChange={e => f('minimo', Number(e.target.value))}/>
+              <input className="input" type="number" min="0" value={form.minimo} onChange={e => f('minimo', e.target.value)}/>
             </div>
             <div className="field">
               <label>Preço de custo (R$)</label>
-              <input className="input" type="number" min="0" step="0.01" value={form.precoCusto} onChange={e => f('precoCusto', Number(e.target.value))}/>
+              <input className="input" type="number" min="0" step="0.01" value={form.precoCusto} onChange={e => f('precoCusto', e.target.value)}/>
             </div>
             <div className="field">
               <label>Preço de venda (R$)</label>
-              <input className="input" type="number" min="0" step="0.01" value={form.precoVenda} onChange={e => f('precoVenda', Number(e.target.value))}/>
+              <input className="input" type="number" min="0" step="0.01" value={form.precoVenda} onChange={e => f('precoVenda', e.target.value)}/>
             </div>
             <div className="field">
               <label>Código / SKU</label>
@@ -205,7 +205,7 @@ function ModalMovimento({ item, tipoInicial, alunos, onSave, onClose }) {
           <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
             <div className="field">
               <label>{form.tipo === 'ajuste' ? 'Nova quantidade total' : 'Quantidade'}</label>
-              <input className="input" type="number" min={form.tipo === 'ajuste' ? 0 : 1} value={form.quantidade} onChange={e => f('quantidade', Number(e.target.value))}/>
+              <input className="input" type="number" min={form.tipo === 'ajuste' ? 0 : 1} value={form.quantidade} onChange={e => f('quantidade', e.target.value)}/>
             </div>
             <div className="field">
               <label>Data</label>

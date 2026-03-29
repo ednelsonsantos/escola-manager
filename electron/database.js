@@ -85,16 +85,17 @@ function criarTabelas() {
     );
 
     CREATE TABLE IF NOT EXISTS usuarios (
-      id             INTEGER PRIMARY KEY AUTOINCREMENT,
-      login          TEXT    NOT NULL UNIQUE COLLATE NOCASE,
-      nome           TEXT    NOT NULL,
-      email          TEXT    DEFAULT '',
-      senha_hash     TEXT    NOT NULL,
-      perfil_id      INTEGER NOT NULL REFERENCES perfis(id) ON DELETE RESTRICT,
-      ativo          INTEGER DEFAULT 1,
-      avatar_cor     TEXT    DEFAULT '#63dcaa',
-      ultimo_acesso  TEXT,
-      criado_em      TEXT    DEFAULT (datetime('now'))
+      id               INTEGER PRIMARY KEY AUTOINCREMENT,
+      login            TEXT    NOT NULL UNIQUE COLLATE NOCASE,
+      nome             TEXT    NOT NULL,
+      email            TEXT    DEFAULT '',
+      senha_hash       TEXT    NOT NULL,
+      perfil_id        INTEGER NOT NULL REFERENCES perfis(id) ON DELETE RESTRICT,
+      ativo            INTEGER DEFAULT 1,
+      avatar_cor       TEXT    DEFAULT '#63dcaa',
+      professor_db_id  INTEGER REFERENCES professores_db(id) ON DELETE SET NULL,
+      ultimo_acesso    TEXT,
+      criado_em        TEXT    DEFAULT (datetime('now'))
     );
 
     -- ── IDENTIDADE E CONFIGURAÇÕES ────────────────────────────────────────────
@@ -135,14 +136,51 @@ function criarTabelas() {
     -- ── SCHEMA PREPARADO PARA V6 ──────────────────────────────────────────────
 
     CREATE TABLE IF NOT EXISTS professores_db (
-      id        INTEGER PRIMARY KEY AUTOINCREMENT,
-      nome      TEXT    NOT NULL,
-      idioma    TEXT    DEFAULT '',
-      email     TEXT    DEFAULT '',
-      telefone  TEXT    DEFAULT '',
-      ativo     INTEGER DEFAULT 1,
-      criado_em TEXT    DEFAULT (datetime('now','localtime'))
+      id                    INTEGER PRIMARY KEY AUTOINCREMENT,
+      nome                  TEXT    NOT NULL,
+      idioma                TEXT    DEFAULT '',
+      email                 TEXT    DEFAULT '',
+      telefone              TEXT    DEFAULT '',
+      ativo                 INTEGER DEFAULT 1,
+      -- Contrato de trabalho (v5.12)
+      tipo_contrato         TEXT    DEFAULT 'CLT' CHECK(tipo_contrato IN ('CLT','PJ')),
+      salario_fixo          REAL    DEFAULT 0,      -- CLT: salário mensal bruto
+      carga_horaria_mensal  REAL    DEFAULT 0,      -- CLT: horas/mês contratadas
+      valor_hora_pj         REAL    DEFAULT 0,      -- PJ: valor cobrado por hora
+      criado_em             TEXT    DEFAULT (datetime('now','localtime'))
     );
+
+    -- ── FOLHA DE PAGAMENTO DE PROFESSORES (v5.12) ────────────────────────────
+
+    CREATE TABLE IF NOT EXISTS folha_pagamento (
+      id                INTEGER PRIMARY KEY AUTOINCREMENT,
+      professor_id      INTEGER NOT NULL REFERENCES professores_db(id) ON DELETE CASCADE,
+      mes               TEXT    NOT NULL,            -- formato YYYY-MM
+      tipo_contrato     TEXT    NOT NULL CHECK(tipo_contrato IN ('CLT','PJ')),
+      -- Horas apuradas da carga horária
+      horas_normais     REAL    DEFAULT 0,
+      horas_extra_50    REAL    DEFAULT 0,
+      horas_extra_100   REAL    DEFAULT 0,
+      -- Valores calculados
+      valor_normal      REAL    DEFAULT 0,
+      valor_extra_50    REAL    DEFAULT 0,
+      valor_extra_100   REAL    DEFAULT 0,
+      total_bruto       REAL    DEFAULT 0,
+      deducoes          REAL    DEFAULT 0,           -- descontos manuais
+      total_liquido     REAL    DEFAULT 0,
+      -- Referência para cálculo
+      salario_fixo_ref  REAL    DEFAULT 0,           -- snapshot do salário na data
+      valor_hora_ref    REAL    DEFAULT 0,           -- snapshot do valor/hora na data
+      obs               TEXT    DEFAULT '',
+      status            TEXT    DEFAULT 'Aberta' CHECK(status IN ('Aberta','Fechada','Paga')),
+      criado_em         TEXT    DEFAULT (datetime('now','localtime')),
+      atualizado_em     TEXT    DEFAULT (datetime('now','localtime')),
+      UNIQUE(professor_id, mes)                      -- uma folha por professor por mês
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_folha_professor ON folha_pagamento(professor_id);
+    CREATE INDEX IF NOT EXISTS idx_folha_mes       ON folha_pagamento(mes);
+    CREATE INDEX IF NOT EXISTS idx_folha_status    ON folha_pagamento(status);
 
     CREATE TABLE IF NOT EXISTS turmas_db (
       id           INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -175,10 +213,23 @@ function criarTabelas() {
       resp_telefone    TEXT    DEFAULT '',
       resp_email       TEXT    DEFAULT '',
       resp_parentesco  TEXT    DEFAULT '',
+      resp_eh_proprio  INTEGER DEFAULT 0,
+      -- Lista de espera (v5.13)
+      turma_espera_id   INTEGER,
+      turmas_espera_json TEXT   DEFAULT '[]',
+      curso_espera      TEXT    DEFAULT '',
+      -- Status estendido (v5.13)
+      status_motivo    TEXT    DEFAULT '',
+      manter_vaga      INTEGER DEFAULT 0,
+      manter_vaga_dias INTEGER DEFAULT 0,
       -- Rematrícula (v5.7) — gravados pelo EditarAluno.jsx ao salvar
       turma_anterior_id  INTEGER,                -- turmaId anterior (mudança de turma)
       data_rematricula   TEXT    DEFAULT '',      -- data YYYY-MM-DD da mudança
       data_reativacao    TEXT    DEFAULT '',      -- data YYYY-MM-DD da reativação de status
+      -- Múltiplos cursos e desconto (v5.12)
+      matriculas_json    TEXT    DEFAULT '[]',    -- JSON: [{turmaId, mensalidade}]
+      desconto_tipo      TEXT    DEFAULT '',      -- '' | 'percentual' | 'fixo'
+      desconto_valor     REAL    DEFAULT 0,       -- valor do desconto
       criado_em        TEXT    DEFAULT (datetime('now','localtime')),
       atualizado_em    TEXT    DEFAULT (datetime('now','localtime'))
     );
@@ -237,6 +288,7 @@ function criarTabelas() {
       cancelada             INTEGER DEFAULT 0,
       motivo_cancelamento   TEXT    DEFAULT '',
       aula_reposicao_id     INTEGER REFERENCES aulas(id) ON DELETE SET NULL,
+      professor_id          INTEGER REFERENCES professores_db(id) ON DELETE SET NULL,
       criado_em             TEXT    DEFAULT (datetime('now','localtime'))
     );
 
@@ -495,6 +547,19 @@ function migrarSchema() {
         db.exec("ALTER TABLE aulas ADD COLUMN aula_reposicao_id INTEGER")
         console.log('[DB] Migração: coluna aula_reposicao_id adicionada em aulas')
       }
+      // Professor que ministrou a aula (v5.13) — capturado da turma na criação
+      if (!colsAulas.includes('professor_id')) {
+        db.exec("ALTER TABLE aulas ADD COLUMN professor_id INTEGER REFERENCES professores_db(id) ON DELETE SET NULL")
+        // Retroativamente preenche professor_id para aulas existentes com base na turma
+        db.exec(`
+          UPDATE aulas
+          SET professor_id = (
+            SELECT t.professor_id FROM turmas_db t WHERE t.id = aulas.turma_ls_id
+          )
+          WHERE professor_id IS NULL
+        `)
+        console.log('[DB] Migração: coluna professor_id adicionada em aulas e preenchida retroativamente')
+      }
     }
   } catch (e) {
     console.warn('[DB] migrarSchema:', e.message)
@@ -515,10 +580,21 @@ function migrarSchema() {
       if (!cols.includes('resp_telefone'))   db.exec("ALTER TABLE alunos_db ADD COLUMN resp_telefone   TEXT    DEFAULT ''")
       if (!cols.includes('resp_email'))      db.exec("ALTER TABLE alunos_db ADD COLUMN resp_email      TEXT    DEFAULT ''")
       if (!cols.includes('resp_parentesco')) db.exec("ALTER TABLE alunos_db ADD COLUMN resp_parentesco TEXT    DEFAULT ''")
+      if (!cols.includes('resp_eh_proprio')) db.exec("ALTER TABLE alunos_db ADD COLUMN resp_eh_proprio INTEGER DEFAULT 0")
+      if (!cols.includes('turma_espera_id'))    db.exec("ALTER TABLE alunos_db ADD COLUMN turma_espera_id    INTEGER")
+      if (!cols.includes('turmas_espera_json')) db.exec("ALTER TABLE alunos_db ADD COLUMN turmas_espera_json TEXT DEFAULT '[]'")
+      if (!cols.includes('curso_espera'))       db.exec("ALTER TABLE alunos_db ADD COLUMN curso_espera       TEXT DEFAULT ''")
+      if (!cols.includes('status_motivo'))   db.exec("ALTER TABLE alunos_db ADD COLUMN status_motivo   TEXT    DEFAULT ''")
+      if (!cols.includes('manter_vaga'))     db.exec("ALTER TABLE alunos_db ADD COLUMN manter_vaga     INTEGER DEFAULT 0")
+      if (!cols.includes('manter_vaga_dias'))db.exec("ALTER TABLE alunos_db ADD COLUMN manter_vaga_dias INTEGER DEFAULT 0")
       // Campos de rematrícula (v5.7)
       if (!cols.includes('turma_anterior_id')) db.exec("ALTER TABLE alunos_db ADD COLUMN turma_anterior_id INTEGER")
       if (!cols.includes('data_rematricula'))  db.exec("ALTER TABLE alunos_db ADD COLUMN data_rematricula  TEXT DEFAULT ''")
       if (!cols.includes('data_reativacao'))   db.exec("ALTER TABLE alunos_db ADD COLUMN data_reativacao   TEXT DEFAULT ''")
+      // Múltiplos cursos e desconto (v5.12)
+      if (!cols.includes('matriculas_json'))   db.exec("ALTER TABLE alunos_db ADD COLUMN matriculas_json TEXT DEFAULT '[]'")
+      if (!cols.includes('desconto_tipo'))     db.exec("ALTER TABLE alunos_db ADD COLUMN desconto_tipo   TEXT DEFAULT ''")
+      if (!cols.includes('desconto_valor'))    db.exec("ALTER TABLE alunos_db ADD COLUMN desconto_valor  REAL DEFAULT 0")
       db.exec("CREATE INDEX IF NOT EXISTS idx_alunos_ls_id ON alunos_db(ls_id)")
       console.log('[DB] Migração v6: alunos_db atualizado')
     }
@@ -534,8 +610,24 @@ function migrarSchema() {
       console.log('[DB] Migração v6: pagamentos_db atualizado')
     }
 
-    // professores_db — ajuste de datetime para localtime
-    // (sem mudança estrutural, nada a migrar)
+    // professores_db — campos de contrato (v5.12)
+    if (tabelasExistentes.includes('professores_db')) {
+      const cols = db.prepare('PRAGMA table_info(professores_db)').all().map(c => c.name)
+      if (!cols.includes('tipo_contrato'))        db.exec("ALTER TABLE professores_db ADD COLUMN tipo_contrato        TEXT DEFAULT 'CLT'")
+      if (!cols.includes('salario_fixo'))         db.exec("ALTER TABLE professores_db ADD COLUMN salario_fixo         REAL DEFAULT 0")
+      if (!cols.includes('carga_horaria_mensal')) db.exec("ALTER TABLE professores_db ADD COLUMN carga_horaria_mensal REAL DEFAULT 0")
+      if (!cols.includes('valor_hora_pj'))        db.exec("ALTER TABLE professores_db ADD COLUMN valor_hora_pj        REAL DEFAULT 0")
+      console.log('[DB] Migração v5.12: professores_db — campos de contrato adicionados')
+    }
+
+    // usuarios — vínculo com professor (v5.13)
+    if (tabelasExistentes.includes('usuarios')) {
+      const cols = db.prepare('PRAGMA table_info(usuarios)').all().map(c => c.name)
+      if (!cols.includes('professor_db_id')) {
+        db.exec("ALTER TABLE usuarios ADD COLUMN professor_db_id INTEGER REFERENCES professores_db(id) ON DELETE SET NULL")
+        console.log('[DB] Migração v5.13: usuarios — coluna professor_db_id adicionada')
+      }
+    }
 
     // turmas_db — sem campos novos, nada a migrar
 
@@ -555,6 +647,23 @@ function migrarSchema() {
   } catch (e) {
     console.warn('[DB] migrarSchema v6:', e.message)
   }
+
+  // ── Corrige perfil Administrador com permissões de nível 1 → 2 (v5.13) ──────
+  // A seed anterior gravava 1 (Visualizar) em vez de 2 (Editar) para o admin.
+  try {
+    const admin = db.prepare("SELECT * FROM perfis WHERE nome='Administrador'").get()
+    if (admin && admin.perm_usuarios < 2) {
+      db.prepare(`
+        UPDATE perfis
+        SET perm_dashboard=2, perm_alunos=2, perm_financeiro=2, perm_cursos=2,
+            perm_relatorios=2, perm_agenda=2, perm_config=2, perm_usuarios=2
+        WHERE nome='Administrador'
+      `).run()
+      console.log('[DB] Migração v5.13: permissões do Administrador corrigidas de 1 para 2')
+    }
+  } catch (e) {
+    console.warn('[DB] migrarSchema v5.13 (admin perms):', e.message)
+  }
 }
 
 // ── Seed inicial ──────────────────────────────────────────────────────────────
@@ -564,22 +673,22 @@ function seedInicial() {
 
   const perfilAdmin = db.prepare(`
     INSERT INTO perfis (nome, desc, cor, perm_dashboard, perm_alunos, perm_financeiro, perm_cursos, perm_relatorios, perm_agenda, perm_config, perm_usuarios)
-    VALUES ('Administrador','Acesso total ao sistema','#63dcaa',1,1,1,1,1,1,1,1)
+    VALUES ('Administrador','Acesso total ao sistema','#63dcaa',2,2,2,2,2,2,2,2)
   `).run()
 
   const perfilSec = db.prepare(`
     INSERT INTO perfis (nome, desc, cor, perm_dashboard, perm_alunos, perm_financeiro, perm_cursos, perm_relatorios, perm_agenda, perm_config, perm_usuarios)
-    VALUES ('Secretaria','Gestão de alunos e agenda','#5b9cf6',1,1,1,1,1,1,0,0)
+    VALUES ('Secretaria','Gestão de alunos e agenda','#5b9cf6',1,2,2,1,1,2,0,0)
   `).run()
 
   const perfilProf = db.prepare(`
     INSERT INTO perfis (nome, desc, cor, perm_dashboard, perm_alunos, perm_financeiro, perm_cursos, perm_relatorios, perm_agenda, perm_config, perm_usuarios)
-    VALUES ('Professor','Frequência e agenda','#a78bfa',1,1,0,1,0,1,0,0)
+    VALUES ('Professor','Frequência e agenda','#a78bfa',1,1,0,2,0,1,0,0)
   `).run()
 
   db.prepare(`
     INSERT INTO perfis (nome, desc, cor, perm_dashboard, perm_alunos, perm_financeiro, perm_cursos, perm_relatorios, perm_agenda, perm_config, perm_usuarios)
-    VALUES ('Financeiro','Gestão financeira','#f5c542',1,1,1,0,1,0,0,0)
+    VALUES ('Financeiro','Gestão financeira','#f5c542',1,1,2,0,2,0,0,0)
   `).run()
 
   db.prepare(`
@@ -681,7 +790,8 @@ function login(loginStr, senha) {
 function listarUsuarios() {
   dbOk()
   return db.prepare(`
-    SELECT u.id, u.login, u.nome, u.email, u.perfil_id, u.ativo, u.avatar_cor, u.ultimo_acesso, u.criado_em,
+    SELECT u.id, u.login, u.nome, u.email, u.perfil_id, u.ativo, u.avatar_cor,
+      u.professor_db_id, u.ultimo_acesso, u.criado_em,
       p.nome AS perfil_nome, p.cor AS perfil_cor
     FROM usuarios u JOIN perfis p ON p.id = u.perfil_id ORDER BY u.nome
   `).all()
@@ -693,9 +803,10 @@ function criarUsuario(d, _req = {}) {
   const existe = db.prepare('SELECT id FROM usuarios WHERE login=? COLLATE NOCASE').get(d.login)
   if (existe) return { ok:false, erro:'Login já existe' }
   const info = db.prepare(`
-    INSERT INTO usuarios (login,nome,email,senha_hash,perfil_id,avatar_cor)
-    VALUES (?,?,?,?,?,?)
-  `).run(d.login, d.nome, d.email||'', hashSenha(d.senha), d.perfil_id, d.avatar_cor||'#63dcaa')
+    INSERT INTO usuarios (login,nome,email,senha_hash,perfil_id,avatar_cor,professor_db_id)
+    VALUES (?,?,?,?,?,?,?)
+  `).run(d.login, d.nome, d.email||'', hashSenha(d.senha), d.perfil_id, d.avatar_cor||'#63dcaa',
+    d.professor_db_id ? Number(d.professor_db_id) : null)
   registrarLog({ usuarioId:_req.userId, usuarioLogin:_req.userLogin||'sistema', modulo:'usuarios', acao:'criar', entidadeId:info.lastInsertRowid, entidadeNome:d.nome, detalhe:`Usuário criado: ${d.login}` })
   return { ok:true, id:info.lastInsertRowid }
 }
@@ -710,8 +821,9 @@ function editarUsuario(id, d, _req = {}) {
   }
   const novaSenhaHash = d.nova_senha ? hashSenha(d.nova_senha) : db.prepare('SELECT senha_hash FROM usuarios WHERE id=?').get(id).senha_hash
   db.prepare(`
-    UPDATE usuarios SET login=?,nome=?,email=?,senha_hash=?,perfil_id=?,ativo=?,avatar_cor=? WHERE id=?
-  `).run(d.login, d.nome, d.email||'', novaSenhaHash, d.perfil_id, d.ativo??1, d.avatar_cor||'#63dcaa', id)
+    UPDATE usuarios SET login=?,nome=?,email=?,senha_hash=?,perfil_id=?,ativo=?,avatar_cor=?,professor_db_id=? WHERE id=?
+  `).run(d.login, d.nome, d.email||'', novaSenhaHash, d.perfil_id, d.ativo??1, d.avatar_cor||'#63dcaa',
+    d.professor_db_id ? Number(d.professor_db_id) : null, id)
   registrarLog({ usuarioId:_req.userId, usuarioLogin:_req.userLogin||'sistema', modulo:'usuarios', acao:'editar', entidadeId:id, entidadeNome:d.nome, detalhe:`Usuário editado: ${u.login} → ${d.login}` })
   return { ok:true }
 }
@@ -815,9 +927,15 @@ function listarAulas({ turmaLsId = null, mes = null } = {}) {
 
 function criarAula(d, _req = {}) {
   dbOk()
+  // professorId explícito (substituição) tem prioridade; senão usa o da turma
+  let professorId = d.professorId ? Number(d.professorId) : null
+  if (!professorId && d.turmaLsId) {
+    const turmaRow = db.prepare('SELECT professor_id FROM turmas_db WHERE id = ?').get(d.turmaLsId)
+    professorId = turmaRow?.professor_id || null
+  }
   const info = db.prepare(`
-    INSERT INTO aulas (turma_ls_id, turma_codigo, data, titulo, conteudo, cancelada, motivo_cancelamento, aula_reposicao_id)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO aulas (turma_ls_id, turma_codigo, data, titulo, conteudo, cancelada, motivo_cancelamento, aula_reposicao_id, professor_id)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     d.turmaLsId,
     d.turmaCodigo          || '',
@@ -827,13 +945,21 @@ function criarAula(d, _req = {}) {
     d.cancelada            ? 1 : 0,
     d.motivo_cancelamento  || '',
     d.aula_reposicao_id    ?? null,
+    professorId,
   )
-  registrarLog({ usuarioId:_req.userId, usuarioLogin:_req.userLogin||'sistema', modulo:'frequencia', acao:'criar', entidadeId:info.lastInsertRowid, entidadeNome:d.titulo||d.data, detalhe:`Aula criada: ${d.turmaCodigo} ${d.data}${d.cancelada ? ' [CANCELADA]' : ''}` })
+  const subst = d.professorId ? ' [SUBSTITUIÇÃO]' : ''
+  registrarLog({ usuarioId:_req.userId, usuarioLogin:_req.userLogin||'sistema', modulo:'frequencia', acao:'criar', entidadeId:info.lastInsertRowid, entidadeNome:d.titulo||d.data, detalhe:`Aula criada: ${d.turmaCodigo} ${d.data}${d.cancelada ? ' [CANCELADA]' : ''}${subst}` })
   return { ok:true, id:info.lastInsertRowid }
 }
 
 function editarAula(id, d, _req = {}) {
   dbOk()
+  // professor_id: undefined = não altera; null = limpa; número = atualiza
+  if (d.professor_id !== undefined) {
+    db.prepare('UPDATE aulas SET professor_id=? WHERE id=?').run(
+      d.professor_id ? Number(d.professor_id) : null, id
+    )
+  }
   db.prepare(`
     UPDATE aulas SET
       titulo=?, data=?, conteudo=?,
@@ -855,6 +981,7 @@ function editarAula(id, d, _req = {}) {
     d.professor_ausente ? '[PROFESSOR AUSENTE]' : '',
     d.cancelada         ? '[CANCELADA]'         : '',
     d.aula_reposicao_id ? `[REPOSIÇÃO DE #${d.aula_reposicao_id}]` : '',
+    d.professor_id      ? '[SUBSTITUIÇÃO]'      : '',
   ].filter(Boolean).join(' ')
   registrarLog({ usuarioId:_req.userId, usuarioLogin:_req.userLogin||'sistema', modulo:'frequencia', acao:'editar', entidadeId:id, detalhe:`Aula editada: ID ${id} ${flags}`.trim() })
   return { ok:true }
@@ -899,6 +1026,50 @@ function estatisticasFrequencia(turmaLsId) {
     GROUP BY aluno_ls_id, aluno_nome ORDER BY aluno_nome
   `).all(...aulaIds)
   return { totalAulas:aulas.length, alunos:presencasPorAluno }
+}
+
+function relatorioFrequenciaAvancado({ turmaId, professorId, dataInicio, dataFim } = {}) {
+  dbOk()
+  const conds = ['a.cancelada = 0']
+  const params = []
+  if (turmaId)    { conds.push('a.turma_ls_id = ?'); params.push(Number(turmaId))    }
+  if (professorId){ conds.push('a.professor_id = ?'); params.push(Number(professorId)) }
+  if (dataInicio) { conds.push('a.data >= ?');         params.push(dataInicio)          }
+  if (dataFim)    { conds.push('a.data <= ?');         params.push(dataFim)             }
+  const wc = 'WHERE ' + conds.join(' AND ')
+
+  const totalAulas = db.prepare(`SELECT COUNT(*) AS n FROM aulas a ${wc}`).get(...params).n
+  if (!totalAulas) return { totalAulas: 0, alunos: [], professoresStats: [], aulas: [] }
+
+  const alunos = db.prepare(`
+    SELECT p.aluno_ls_id, p.aluno_nome,
+      COUNT(*)                              AS total_aulas,
+      SUM(p.presente)                       AS total_presentes,
+      ROUND(SUM(p.presente)*100.0/COUNT(*), 1) AS percentual
+    FROM presencas p JOIN aulas a ON a.id = p.aula_id
+    ${wc}
+    GROUP BY p.aluno_ls_id, p.aluno_nome ORDER BY p.aluno_nome
+  `).all(...params)
+
+  const professoresStats = db.prepare(`
+    SELECT a.professor_id,
+      COUNT(*)                AS total_aulas,
+      SUM(a.professor_ausente) AS total_ausencias
+    FROM aulas a ${wc}
+    GROUP BY a.professor_id
+  `).all(...params)
+
+  const aulas = db.prepare(`
+    SELECT a.id, a.data, a.turma_codigo, a.turma_ls_id, a.professor_id,
+      a.professor_ausente, a.titulo,
+      COUNT(p.id)                                      AS total_alunos,
+      SUM(CASE WHEN p.presente=1 THEN 1 ELSE 0 END)   AS total_presentes
+    FROM aulas a LEFT JOIN presencas p ON p.aula_id = a.id
+    ${wc}
+    GROUP BY a.id ORDER BY a.data DESC LIMIT 200
+  `).all(...params)
+
+  return { totalAulas, alunos, professoresStats, aulas }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -1106,12 +1277,12 @@ function processarRecadosAgendados() {
 function cargaHorariaProfessores({ professorId = null, de = null, ate = null } = {}) {
   dbOk()
 
-  const where = ['t.professor_id IS NOT NULL']
+  const where = ['COALESCE(a.professor_id, t.professor_id) IS NOT NULL']
   const params = []
 
-  if (professorId) { where.push('t.professor_id = ?'); params.push(professorId) }
-  if (de)          { where.push('a.data >= ?');         params.push(de)  }
-  if (ate)         { where.push('a.data <= ?');         params.push(ate) }
+  if (professorId) { where.push('COALESCE(a.professor_id, t.professor_id) = ?'); params.push(professorId) }
+  if (de)          { where.push('a.data >= ?'); params.push(de)  }
+  if (ate)         { where.push('a.data <= ?'); params.push(ate) }
 
   const wc = 'WHERE ' + where.join(' AND ')
 
@@ -1130,8 +1301,8 @@ function cargaHorariaProfessores({ professorId = null, de = null, ate = null } =
       MIN(a.data)                            AS primeira_aula,
       MAX(a.data)                            AS ultima_aula
     FROM aulas a
-    JOIN turmas_db t      ON t.id = a.turma_ls_id
-    JOIN professores_db p ON p.id = t.professor_id
+    LEFT JOIN turmas_db t      ON t.id = a.turma_ls_id
+    JOIN professores_db p ON p.id = COALESCE(a.professor_id, t.professor_id)
     ${wc}
     GROUP BY p.id, p.nome, p.idioma, p.email, p.telefone
     ORDER BY p.nome COLLATE NOCASE
@@ -1140,21 +1311,21 @@ function cargaHorariaProfessores({ professorId = null, de = null, ate = null } =
   // ── Detalhe por turma (para expandir na UI) ───────────────────────────────
   const detalhe = db.prepare(`
     SELECT
-      p.id   AS professor_id,
-      t.id   AS turma_id,
-      t.codigo AS turma_codigo,
-      t.idioma AS turma_idioma,
-      t.nivel  AS turma_nivel,
+      COALESCE(a.professor_id, t.professor_id) AS professor_id,
+      t.id      AS turma_id,
+      t.codigo  AS turma_codigo,
+      t.idioma  AS turma_idioma,
+      t.nivel   AS turma_nivel,
       COUNT(a.id) AS total_aulas,
       SUM(CASE WHEN a.professor_ausente=0 THEN 1 ELSE 0 END) AS aulas_ministradas,
       SUM(CASE WHEN a.professor_ausente=1 THEN 1 ELSE 0 END) AS aulas_ausente,
       MIN(a.data) AS primeira_aula,
       MAX(a.data) AS ultima_aula
     FROM aulas a
-    JOIN turmas_db t      ON t.id = a.turma_ls_id
-    JOIN professores_db p ON p.id = t.professor_id
+    LEFT JOIN turmas_db t      ON t.id = a.turma_ls_id
+    JOIN professores_db p ON p.id = COALESCE(a.professor_id, t.professor_id)
     ${wc}
-    GROUP BY p.id, t.id, t.codigo, t.idioma, t.nivel
+    GROUP BY COALESCE(a.professor_id, t.professor_id), t.id, t.codigo, t.idioma, t.nivel
     ORDER BY p.nome COLLATE NOCASE, t.codigo COLLATE NOCASE
   `).all(...params)
 
@@ -1218,15 +1389,21 @@ function listarProfessores({ apenasAtivos = false } = {}) {
 function criarProfessor(d, _req = {}) {
   dbOk()
   if (!d.nome?.trim()) return { ok: false, erro: 'Nome é obrigatório' }
+  const tipoContrato = d.tipo_contrato === 'PJ' ? 'PJ' : 'CLT'
   const info = db.prepare(`
-    INSERT INTO professores_db (nome, idioma, email, telefone, ativo)
-    VALUES (?, ?, ?, ?, ?)
+    INSERT INTO professores_db (nome, idioma, email, telefone, ativo,
+      tipo_contrato, salario_fixo, carga_horaria_mensal, valor_hora_pj)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     d.nome.trim(),
-    d.idioma  || '',
-    d.email   || '',
-    d.telefone|| '',
-    d.ativo ?? 1
+    d.idioma               || '',
+    d.email                || '',
+    d.telefone             || '',
+    d.ativo                ?? 1,
+    tipoContrato,
+    Number(d.salario_fixo)         || 0,
+    Number(d.carga_horaria_mensal) || 0,
+    Number(d.valor_hora_pj)        || 0
   )
   registrarLog({
     usuarioId:    _req.userId,
@@ -1234,26 +1411,32 @@ function criarProfessor(d, _req = {}) {
     modulo: 'professores', acao: 'criar',
     entidadeId:   info.lastInsertRowid,
     entidadeNome: d.nome,
-    detalhe: `Professor criado: ${d.nome}`,
+    detalhe: `Professor criado: ${d.nome} [${tipoContrato}]`,
   })
   return { ok: true, id: info.lastInsertRowid }
 }
 
 function editarProfessor(id, d, _req = {}) {
   dbOk()
-  const antes = db.prepare('SELECT nome FROM professores_db WHERE id = ?').get(id)
+  const antes = db.prepare('SELECT nome, tipo_contrato FROM professores_db WHERE id = ?').get(id)
   if (!antes) return { ok: false, erro: 'Professor não encontrado' }
   if (!d.nome?.trim()) return { ok: false, erro: 'Nome é obrigatório' }
+  const tipoContrato = d.tipo_contrato === 'PJ' ? 'PJ' : 'CLT'
   db.prepare(`
     UPDATE professores_db
-    SET nome = ?, idioma = ?, email = ?, telefone = ?, ativo = ?
+    SET nome = ?, idioma = ?, email = ?, telefone = ?, ativo = ?,
+        tipo_contrato = ?, salario_fixo = ?, carga_horaria_mensal = ?, valor_hora_pj = ?
     WHERE id = ?
   `).run(
     d.nome.trim(),
-    d.idioma  || '',
-    d.email   || '',
-    d.telefone|| '',
-    d.ativo ?? 1,
+    d.idioma               || '',
+    d.email                || '',
+    d.telefone             || '',
+    d.ativo                ?? 1,
+    tipoContrato,
+    Number(d.salario_fixo)         || 0,
+    Number(d.carga_horaria_mensal) || 0,
+    Number(d.valor_hora_pj)        || 0,
     id
   )
   registrarLog({
@@ -1262,7 +1445,7 @@ function editarProfessor(id, d, _req = {}) {
     modulo: 'professores', acao: 'editar',
     entidadeId:   id,
     entidadeNome: d.nome,
-    detalhe: `Professor editado: ${antes.nome} → ${d.nome}`,
+    detalhe: `Professor editado: ${antes.nome} → ${d.nome} [${tipoContrato}]`,
   })
   return { ok: true }
 }
@@ -1285,6 +1468,226 @@ function deletarProfessor(id, _req = {}) {
     entidadeId:   id,
     entidadeNome: prof.nome,
     detalhe: `Professor excluído: ${prof.nome}`,
+    nivel: 'aviso',
+  })
+  return { ok: true }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// FOLHA DE PAGAMENTO DE PROFESSORES (v5.12)
+// Integrada com carga horária — calcula valores a partir das horas ministradas.
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Gera ou retorna a folha do mês para um professor.
+ * Preenche horas_normais a partir da carga horária do período.
+ * Horas extras (50% / 100%) são informadas manualmente via editarFolha.
+ */
+function gerarFolha({ professorId, mes }, _req = {}) {
+  dbOk()
+  if (!professorId || !mes) return { ok: false, erro: 'professorId e mes são obrigatórios' }
+
+  const prof = db.prepare(`
+    SELECT id, nome, tipo_contrato, salario_fixo, carga_horaria_mensal, valor_hora_pj
+    FROM professores_db WHERE id = ?
+  `).get(professorId)
+  if (!prof) return { ok: false, erro: 'Professor não encontrado' }
+
+  // Verifica se já existe folha para esse mês
+  const existente = db.prepare(
+    'SELECT id FROM folha_pagamento WHERE professor_id = ? AND mes = ?'
+  ).get(professorId, mes)
+  if (existente) return { ok: false, erro: 'Folha já existe para este mês. Use editarFolha para ajustar.', id: existente.id }
+
+  // Apura horas ministradas no mês via carga horária
+  const de  = `${mes}-01`
+  const ate  = `${mes}-31`
+  const ch = db.prepare(`
+    SELECT SUM(CASE WHEN a.professor_ausente=0 THEN 1 ELSE 0 END) AS horas
+    FROM aulas a
+    LEFT JOIN turmas_db t ON t.id = a.turma_ls_id
+    WHERE COALESCE(a.professor_id, t.professor_id) = ? AND a.data >= ? AND a.data <= ?
+  `).get(professorId, de, ate)
+  const horasNormais = ch?.horas || 0
+
+  // Calcula valores base
+  const isCLT     = prof.tipo_contrato !== 'PJ'
+  const salRef    = prof.salario_fixo        || 0
+  const chMensal  = prof.carga_horaria_mensal|| 0
+  const valorHRef = isCLT
+    ? (chMensal > 0 ? salRef / chMensal : 0)
+    : (prof.valor_hora_pj || 0)
+
+  let valorNormal, deducoes, totalBruto, totalLiq
+  if (isCLT) {
+    // CLT: recebe salário fixo integral; dedução automática por horas não cumpridas
+    valorNormal  = salRef
+    const horasFaltando = Math.max(0, chMensal - horasNormais)
+    deducoes     = horasFaltando * valorHRef
+    totalBruto   = valorNormal
+    totalLiq     = Math.max(0, totalBruto - deducoes)
+  } else {
+    // PJ: recebe somente pelas horas efetivamente ministradas
+    valorNormal  = valorHRef * horasNormais
+    deducoes     = 0
+    totalBruto   = valorNormal
+    totalLiq     = totalBruto
+  }
+
+  const info = db.prepare(`
+    INSERT INTO folha_pagamento
+      (professor_id, mes, tipo_contrato, horas_normais, horas_extra_50, horas_extra_100,
+       valor_normal, valor_extra_50, valor_extra_100, total_bruto, deducoes, total_liquido,
+       salario_fixo_ref, valor_hora_ref, status)
+    VALUES (?, ?, ?, ?, 0, 0, ?, 0, 0, ?, ?, ?, ?, ?, 'Aberta')
+  `).run(
+    professorId, mes, prof.tipo_contrato,
+    horasNormais, valorNormal,
+    totalBruto, deducoes, totalLiq,
+    salRef, valorHRef
+  )
+
+  registrarLog({
+    usuarioId: _req.userId, usuarioLogin: _req.userLogin || 'sistema',
+    modulo: 'folha_pagamento', acao: 'gerar',
+    entidadeId: info.lastInsertRowid, entidadeNome: `${prof.nome} — ${mes}`,
+    detalhe: `Folha gerada: ${prof.nome} ${mes} | ${horasNormais}h | ${prof.tipo_contrato}`,
+  })
+  return { ok: true, id: info.lastInsertRowid }
+}
+
+/**
+ * Edita horas extras e deduções de uma folha ainda aberta.
+ * Recalcula totais automaticamente.
+ */
+function editarFolha(id, d, _req = {}) {
+  dbOk()
+  const folha = db.prepare(`
+    SELECT f.*, p.nome AS professor_nome
+    FROM folha_pagamento f
+    JOIN professores_db p ON p.id = f.professor_id
+    WHERE f.id = ?
+  `).get(id)
+  if (!folha)               return { ok: false, erro: 'Folha não encontrada' }
+  if (folha.status === 'Paga') return { ok: false, erro: 'Folha paga não pode ser editada' }
+
+  const horasNormais   = d.horas_normais   !== undefined ? Number(d.horas_normais)   : folha.horas_normais
+  const horasExtra50   = d.horas_extra_50  !== undefined ? Number(d.horas_extra_50)  : folha.horas_extra_50
+  const horasExtra100  = d.horas_extra_100 !== undefined ? Number(d.horas_extra_100) : folha.horas_extra_100
+  const deducoes       = d.deducoes        !== undefined ? Number(d.deducoes)        : folha.deducoes
+  const obs            = d.obs             !== undefined ? d.obs                     : folha.obs
+  const status         = d.status          !== undefined ? d.status                  : folha.status
+
+  const isCLT     = folha.tipo_contrato !== 'PJ'
+  const vExtra50  = folha.valor_hora_ref * 1.5 * horasExtra50
+  const vExtra100 = folha.valor_hora_ref * 2.0 * horasExtra100
+  let vNormal, bruto, liquido
+  if (isCLT) {
+    // CLT: base = salário fixo; deduções manuais + possível ajuste de horas
+    vNormal = folha.salario_fixo_ref
+    bruto   = vNormal + vExtra50 + vExtra100
+    liquido = Math.max(0, bruto - deducoes)
+  } else {
+    // PJ: base = horas realizadas × valor/hora
+    vNormal = folha.valor_hora_ref * horasNormais
+    bruto   = vNormal + vExtra50 + vExtra100
+    liquido = Math.max(0, bruto - deducoes)
+  }
+
+  db.prepare(`
+    UPDATE folha_pagamento
+    SET horas_normais=?, horas_extra_50=?, horas_extra_100=?,
+        valor_normal=?, valor_extra_50=?, valor_extra_100=?,
+        total_bruto=?, deducoes=?, total_liquido=?,
+        obs=?, status=?,
+        atualizado_em=datetime('now','localtime')
+    WHERE id = ?
+  `).run(
+    horasNormais, horasExtra50, horasExtra100,
+    vNormal, vExtra50, vExtra100,
+    bruto, deducoes, liquido,
+    obs, status, id
+  )
+
+  registrarLog({
+    usuarioId: _req.userId, usuarioLogin: _req.userLogin || 'sistema',
+    modulo: 'folha_pagamento', acao: 'editar',
+    entidadeId: id, entidadeNome: `${folha.professor_nome} — ${folha.mes}`,
+    detalhe: `Folha editada: status=${status} bruto=${bruto.toFixed(2)}`,
+  })
+  return { ok: true }
+}
+
+function listarFolhas({ professorId = null, mes = null, status = null } = {}) {
+  dbOk()
+  const where = []
+  const params = []
+  if (professorId) { where.push('f.professor_id = ?'); params.push(professorId) }
+  if (mes)         { where.push('f.mes = ?');          params.push(mes) }
+  if (status)      { where.push('f.status = ?');       params.push(status) }
+  const wc = where.length ? 'WHERE ' + where.join(' AND ') : ''
+
+  const rows = db.prepare(`
+    SELECT f.*,
+      p.nome          AS professor_nome,
+      p.idioma        AS professor_idioma,
+      p.tipo_contrato AS professor_tipo_contrato
+    FROM folha_pagamento f
+    JOIN professores_db p ON p.id = f.professor_id
+    ${wc}
+    ORDER BY f.mes DESC, p.nome COLLATE NOCASE
+  `).all(...params)
+
+  // Sincroniza horas PJ "Aberta" com as aulas realmente ministradas no mês
+  const syncPJ = db.prepare(`
+    SELECT COALESCE(SUM(CASE WHEN a.professor_ausente=0 THEN 1 ELSE 0 END), 0) AS horas
+    FROM aulas a
+    LEFT JOIN turmas_db t ON t.id = a.turma_ls_id
+    WHERE COALESCE(a.professor_id, t.professor_id) = ? AND a.data >= ? AND a.data <= ?
+      AND a.cancelada = 0
+  `)
+  const updPJ = db.prepare(`
+    UPDATE folha_pagamento SET
+      horas_normais = ?, valor_normal = ?, total_bruto = ?, total_liquido = ?,
+      atualizado_em = datetime('now','localtime')
+    WHERE id = ?
+  `)
+  db.transaction(() => {
+    for (const r of rows) {
+      if (r.tipo_contrato !== 'PJ' || r.status !== 'Aberta') continue
+      const de  = `${r.mes}-01`
+      const ate = `${r.mes}-31`
+      const { horas } = syncPJ.get(r.professor_id, de, ate)
+      const vNormal   = r.valor_hora_ref * horas
+      const liq       = Math.max(0, vNormal - r.deducoes)
+      if (horas !== r.horas_normais) {
+        updPJ.run(horas, vNormal, vNormal, liq, r.id)
+        r.horas_normais  = horas
+        r.valor_normal   = vNormal
+        r.total_bruto    = vNormal
+        r.total_liquido  = liq
+      }
+    }
+  })()
+
+  return rows
+}
+
+function deletarFolha(id, _req = {}) {
+  dbOk()
+  const folha = db.prepare(`
+    SELECT f.*, p.nome AS professor_nome
+    FROM folha_pagamento f JOIN professores_db p ON p.id = f.professor_id
+    WHERE f.id = ?
+  `).get(id)
+  if (!folha)               return { ok: false, erro: 'Folha não encontrada' }
+  if (folha.status === 'Paga') return { ok: false, erro: 'Folha paga não pode ser excluída' }
+
+  db.prepare('DELETE FROM folha_pagamento WHERE id = ?').run(id)
+  registrarLog({
+    usuarioId: _req.userId, usuarioLogin: _req.userLogin || 'sistema',
+    modulo: 'folha_pagamento', acao: 'excluir',
+    entidadeId: id, entidadeNome: `${folha.professor_nome} — ${folha.mes}`,
     nivel: 'aviso',
   })
   return { ok: true }
@@ -1413,10 +1816,25 @@ function deletarTurma(id, _req = {}) {
 // Mantém compatibilidade total com o frontend existente
 function _alunoParaJS(row) {
   if (!row) return null
+
+  // Desserializa matriculas_json; se vazio/inválido, reconstrói a partir de turma_id + mensalidade
+  let matriculas = []
+  try {
+    const parsed = JSON.parse(row.matriculas_json || '[]')
+    if (Array.isArray(parsed) && parsed.length > 0) {
+      matriculas = parsed
+    }
+  } catch { /* ignora JSON inválido */ }
+
+  if (matriculas.length === 0 && row.turma_id) {
+    // Compatibilidade com alunos antigos (curso único)
+    matriculas = [{ turmaId: row.turma_id, mensalidade: row.mensalidade ?? 0 }]
+  }
+
   return {
     id:               row.id,
     lsId:             row.ls_id,
-    nome:             row.nome,
+    nome:             row.nome             || '',
     email:            row.email            || '',
     telefone:         row.telefone         || '',
     turmaId:          row.turma_id         ?? '',
@@ -1430,9 +1848,20 @@ function _alunoParaJS(row) {
     respTelefone:     row.resp_telefone    || '',
     respEmail:        row.resp_email       || '',
     respParentesco:   row.resp_parentesco  || '',
+    respEhProprio:    !!row.resp_eh_proprio,
+    turmaEsperaId:    row.turma_espera_id  || null,
+    turmasEsperaIds:  JSON.parse(row.turmas_espera_json || '[]'),
+    cursoEspera:      row.curso_espera     || '',
+    statusMotivo:     row.status_motivo    || '',
+    manterVaga:       !!row.manter_vaga,
+    manterVagaDias:   row.manter_vaga_dias || 0,
     turmaAnteriorId:  row.turma_anterior_id ?? null,
     dataRematricula:  row.data_rematricula  || '',
     dataReativacao:   row.data_reativacao   || '',
+    // Múltiplos cursos e desconto (v5.12)
+    matriculas,
+    descontoTipo:     row.desconto_tipo    || '',
+    descontoValor:    row.desconto_valor   ?? 0,
     criadoEm:         row.criado_em,
     atualizadoEm:     row.atualizado_em,
   }
@@ -1457,26 +1886,63 @@ function getAluno(id) {
   return _alunoParaJS(db.prepare('SELECT * FROM alunos_db WHERE id = ?').get(id))
 }
 
+function _resolverMatriculas(d) {
+  // Normaliza o array de matrículas e devolve {turmaIdPrincipal, mensalidadeTotal, matriculasJson}
+  const matriculas = Array.isArray(d.matriculas) && d.matriculas.length > 0
+    ? d.matriculas.filter(m => m.turmaId)
+    : []
+
+  // Se não vier array de matrículas, usa turmaId + mensalidade individuais (legado)
+  if (matriculas.length === 0) {
+    const tId  = d.turmaId ?? d.turma_id ?? null
+    const mens = Number(d.mensalidade || 0)
+    if (tId) matriculas.push({ turmaId: tId, mensalidade: mens })
+  }
+
+  const totalBruto = matriculas.reduce((s, m) => s + Number(m.mensalidade || 0), 0)
+  const descontoTipo  = d.descontoAtivo ? (d.descontoTipo || '') : ''
+  const descontoValor = d.descontoAtivo ? Number(d.descontoValor || 0) : 0
+  let descCalc = 0
+  if (descontoTipo === 'percentual') descCalc = totalBruto * descontoValor / 100
+  else if (descontoTipo === 'fixo')  descCalc = descontoValor
+  const mensalidadeTotal = Math.max(0, totalBruto - descCalc)
+
+  return {
+    turmaIdPrincipal: matriculas[0]?.turmaId ?? null,
+    mensalidadeTotal,
+    matriculasJson:  JSON.stringify(matriculas),
+    descontoTipo,
+    descontoValor,
+  }
+}
+
 function criarAluno(d, _req = {}) {
   dbOk()
   if (!d.nome?.trim()) return { ok: false, erro: 'Nome é obrigatório' }
-  if (!d.mensalidade || Number(d.mensalidade) <= 0)
-    return { ok: false, erro: 'Mensalidade deve ser maior que zero' }
+
+  const { turmaIdPrincipal, mensalidadeTotal, matriculasJson, descontoTipo, descontoValor }
+    = _resolverMatriculas(d)
+
+  if (mensalidadeTotal <= 0 && !d._permitirMensalidadeZero)
+    return { ok: false, erro: 'Informe o valor da mensalidade' }
 
   const info = db.prepare(`
     INSERT INTO alunos_db (
       ls_id, nome, email, telefone,
       turma_id, mensalidade, dia_vencimento,
       status, data_nasc, data_matricula, obs,
-      resp_nome, resp_telefone, resp_email, resp_parentesco
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      resp_nome, resp_telefone, resp_email, resp_parentesco, resp_eh_proprio,
+      turma_espera_id, turmas_espera_json, curso_espera,
+      status_motivo, manter_vaga, manter_vaga_dias,
+      matriculas_json, desconto_tipo, desconto_valor
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     d.lsId          ?? d.ls_id        ?? null,
     d.nome.trim(),
     d.email         || '',
     d.telefone      || '',
-    d.turmaId       ?? d.turma_id     ?? null,
-    Number(d.mensalidade),
+    turmaIdPrincipal,
+    mensalidadeTotal,
     d.diaVencimento ?? d.dia_vencimento ?? 10,
     d.status        || 'Ativo',
     (d.dataNasc      ?? d.data_nasc)       || '',
@@ -1485,7 +1951,17 @@ function criarAluno(d, _req = {}) {
     (d.respNome      ?? d.resp_nome)       || '',
     (d.respTelefone  ?? d.resp_telefone)   || '',
     (d.respEmail     ?? d.resp_email)      || '',
-    (d.respParentesco ?? d.resp_parentesco) || ''
+    (d.respParentesco ?? d.resp_parentesco) || '',
+    d.respEhProprio ? 1 : 0,
+    d.turmaEsperaId    ?? null,
+    JSON.stringify(Array.isArray(d.turmasEsperaIds) ? d.turmasEsperaIds : []),
+    d.cursoEspera      || '',
+    d.statusMotivo     || '',
+    d.manterVaga       ? 1 : 0,
+    d.manterVagaDias   || 0,
+    matriculasJson,
+    descontoTipo,
+    descontoValor
   )
   registrarLog({
     usuarioId:    _req.userId,
@@ -1504,20 +1980,26 @@ function editarAluno(id, d, _req = {}) {
   if (!antes) return { ok: false, erro: 'Aluno não encontrado' }
   if (!d.nome?.trim()) return { ok: false, erro: 'Nome é obrigatório' }
 
+  const { turmaIdPrincipal, mensalidadeTotal, matriculasJson, descontoTipo, descontoValor }
+    = _resolverMatriculas(d)
+
   db.prepare(`
     UPDATE alunos_db SET
       nome = ?, email = ?, telefone = ?,
       turma_id = ?, mensalidade = ?, dia_vencimento = ?,
       status = ?, data_nasc = ?, data_matricula = ?, obs = ?,
-      resp_nome = ?, resp_telefone = ?, resp_email = ?, resp_parentesco = ?,
-      turma_anterior_id = ?, data_rematricula = ?, data_reativacao = ?
+      resp_nome = ?, resp_telefone = ?, resp_email = ?, resp_parentesco = ?, resp_eh_proprio = ?,
+      turma_espera_id = ?, turmas_espera_json = ?, curso_espera = ?,
+      status_motivo = ?, manter_vaga = ?, manter_vaga_dias = ?,
+      turma_anterior_id = ?, data_rematricula = ?, data_reativacao = ?,
+      matriculas_json = ?, desconto_tipo = ?, desconto_valor = ?
     WHERE id = ?
   `).run(
     d.nome.trim(),
     d.email         || '',
     d.telefone      || '',
-    d.turmaId       ?? d.turma_id      ?? null,
-    Number(d.mensalidade || 0),
+    turmaIdPrincipal,
+    mensalidadeTotal,
     d.diaVencimento ?? d.dia_vencimento ?? 10,
     d.status        || 'Ativo',
     (d.dataNasc      ?? d.data_nasc)        || '',
@@ -1527,11 +2009,50 @@ function editarAluno(id, d, _req = {}) {
     (d.respTelefone  ?? d.resp_telefone)    || '',
     (d.respEmail     ?? d.resp_email)       || '',
     (d.respParentesco ?? d.resp_parentesco) || '',
+    d.respEhProprio ? 1 : 0,
+    d.turmaEsperaId    ?? null,
+    JSON.stringify(Array.isArray(d.turmasEsperaIds) ? d.turmasEsperaIds : []),
+    d.cursoEspera      || '',
+    d.statusMotivo     || '',
+    d.manterVaga       ? 1 : 0,
+    d.manterVagaDias   || 0,
     d.turmaAnteriorId ?? d.turma_anterior_id ?? null,
     (d.dataRematricula ?? d.data_rematricula) || '',
     (d.dataReativacao  ?? d.data_reativacao)  || '',
+    matriculasJson,
+    descontoTipo,
+    descontoValor,
     id
   )
+
+  // ── Notificação: vaga liberada por mudança para Lista de Espera ───────────
+  if ((d.status || 'Ativo') === 'Lista de Espera' && antes.turma_id) {
+    const turmaLiberada = db.prepare('SELECT id, codigo, idioma, nivel FROM turmas WHERE id = ?').get(antes.turma_id)
+    if (turmaLiberada) {
+      const aguardando = db.prepare(
+        `SELECT DISTINCT a.nome FROM alunos_db a WHERE a.id != ? AND (
+          EXISTS (
+            SELECT 1 FROM json_each(a.turmas_espera_json) je WHERE je.value = ?
+          )
+          OR (a.status = 'Lista de Espera' AND a.turma_espera_id = ?)
+        )`
+      ).all(id, turmaLiberada.id, turmaLiberada.id)
+      if (aguardando.length > 0) {
+        const nomes = aguardando.slice(0, 3).map(a => a.nome).join(', ')
+        const mais  = aguardando.length > 3 ? ` e mais ${aguardando.length - 3}` : ''
+        salvarRecado({
+          titulo: `Vaga disponível — ${turmaLiberada.codigo} (${turmaLiberada.idioma})`,
+          mensagem: `Uma vaga foi liberada na turma ${turmaLiberada.codigo} — ${turmaLiberada.idioma} ${turmaLiberada.nivel}.\n\nAlunos aguardando: ${nomes}${mais}.\n\nAcesse a lista de espera para realizar a matrícula.`,
+          remetente_tipo: 'admin',
+          remetente_id: 0,
+          remetente_nome: 'Sistema',
+          prioridade: 'alta',
+          destinatarios: [{ tipo: 'todos' }],
+          enviar_agora: true,
+        }, _req)
+      }
+    }
+  }
 
   // Log diferenciado para reativação e mudança de turma
   let detalhe = `Aluno editado: ${antes.nome}`
@@ -2221,7 +2742,7 @@ module.exports = {
   getIdentidade, salvarIdentidade,
   listarLogs, limparLogs, estatisticasLogs, registrarLogExterno,
   listarAulas, criarAula, editarAula, deletarAula,
-  getPresencas, salvarPresencas, estatisticasFrequencia,
+  getPresencas, salvarPresencas, estatisticasFrequencia, relatorioFrequenciaAvancado,
   registrarAusenciaProfessor,
   // Recados (v5.6)
   listarRecados, recadosParaAluno, contarNaoLidos,
@@ -2230,6 +2751,8 @@ module.exports = {
   // Professores (v6)
   listarProfessores, criarProfessor, editarProfessor, deletarProfessor,
   cargaHorariaProfessores,
+  // Folha de pagamento (v5.12)
+  gerarFolha, editarFolha, listarFolhas, deletarFolha,
   // Turmas (v6)
   listarTurmas, criarTurma, editarTurma, deletarTurma,
   // Alunos (v6)

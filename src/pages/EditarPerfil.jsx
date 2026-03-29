@@ -4,7 +4,7 @@
  * Rotas: /perfis/novo  e  /perfis/editar/:id
  * Mesmo padrão de duas colunas do EditarUsuario.jsx.
  */
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
   ArrowLeft, Save, Shield, Check, AlertCircle, Users
@@ -55,11 +55,16 @@ export default function EditarPerfil() {
   const [erros,    setErros]    = useState({})
   const [salvando, setSalvando] = useState(false)
 
-  // Carrega perfil ao editar
+  const formIniciado = useRef(false)
+
+  // Carrega perfil ao editar (apenas uma vez)
   useEffect(() => {
-    if (!isNovo && id) {
+    if (!isNovo && id && !formIniciado.current) {
       const p = perfis.find(p => String(p.id) === String(id))
-      if (p) setForm({ ...EMPTY_PERFIL, ...p })
+      if (p) {
+        setForm({ ...EMPTY_PERFIL, ...p })
+        formIniciado.current = true
+      }
     }
   }, [id, perfis, isNovo])
 

@@ -3,7 +3,7 @@
  * Rotas: /agenda/novo  e  /agenda/editar/:id
  * Preserva a data pré-selecionada via state de navegação (openAdd(data))
  */
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import {
   ArrowLeft, Save, Calendar, Clock, AlertCircle,
@@ -37,10 +37,15 @@ export default function EditarEvento() {
   const [erros,    setErros]    = useState({})
   const [salvando, setSalvando] = useState(false)
 
+  const formIniciado = useRef(false)
+
   useEffect(() => {
-    if (!isNovo && id) {
+    if (!isNovo && id && !formIniciado.current) {
       const ev = eventos.find(e => String(e.id) === String(id))
-      if (ev) setForm({ ...EMPTY, ...ev })
+      if (ev) {
+        setForm({ ...EMPTY, ...ev })
+        formIniciado.current = true
+      }
     }
   }, [id, eventos, isNovo])
 

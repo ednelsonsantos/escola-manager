@@ -28,7 +28,8 @@ import Frequencia      from './pages/Frequencia.jsx'
 import Recados        from './pages/Recados/Recados.jsx'
 import GradeHorarios  from './pages/GradeHorarios.jsx'
 import Inadimplentes  from './pages/Inadimplentes.jsx'
-import CargaHoraria   from './pages/CargaHoraria.jsx'
+import CargaHoraria    from './pages/CargaHoraria.jsx'
+import FolhaPagamento  from './pages/FolhaPagamento.jsx'
 import FluxoCaixa     from './pages/FluxoCaixa.jsx'
 import ReservaSalas  from './pages/ReservaSalas.jsx'
 import Notas         from './pages/Notas.jsx'
@@ -44,6 +45,7 @@ const NAV_ITEMS = [
   { label:'Cursos',     icon:BookOpen,        path:'/cursos',       perm:'cursos'     },
   { label:'Grade',         icon:LayoutGrid,      path:'/cursos/grade',          perm:'cursos'     },
   { label:'Carga Horária', icon:Clock,           path:'/cursos/carga-horaria',  perm:'cursos'     },
+  { label:'Folha de Pagamento', icon:DollarSign, path:'/cursos/folha-pagamento', perm:'financeiro' },
   { label:'Frequência',    icon:ClipboardList,   path:'/frequencia',            perm:'cursos'     },
   { label:'Notas',         icon:BookOpen,        path:'/cursos/notas',          perm:'cursos'     },
   { label:'Certificados',  icon:Award,           path:'/cursos/certificados',   perm:'cursos'     },
@@ -62,7 +64,8 @@ const PAGE_META = {
   '/financeiro/fluxo-caixa':  { title:'Fluxo de Caixa', sub:'Entradas e saídas financeiras' },
   '/cursos':       { title:'Cursos',       sub:'Turmas e professores' },
   '/cursos/grade': { title:'Grade de Horários', sub:'Visualização semanal das turmas' },
-  '/cursos/carga-horaria': { title:'Carga Horária', sub:'Horas ministradas por professor' },
+  '/cursos/carga-horaria':    { title:'Carga Horária',      sub:'Horas ministradas por professor' },
+  '/cursos/folha-pagamento':  { title:'Folha de Pagamento', sub:'Geração e controle de pagamentos de professores' },
   '/cursos/notas':         { title:'Notas e Resultados', sub:'Lançamento de notas e ata de resultados' },
   '/cursos/certificados':  { title:'Certificados',       sub:'Emissão e histórico de certificados' },
   '/relatorios':   { title:'Relatórios',   sub:'Análise de dados' },
@@ -173,6 +176,7 @@ const AppRoutes = React.memo(function AppRoutes() {
         <Route path="/agenda/salas"                   element={<Guarded perm="agenda"><ReservaSalas/></Guarded>}/>
         <Route path="/cursos/grade"                   element={<Guarded perm="cursos"><GradeHorarios/></Guarded>}/>
         <Route path="/cursos/carga-horaria"           element={<Guarded perm="cursos"><CargaHoraria/></Guarded>}/>
+        <Route path="/cursos/folha-pagamento"         element={<Guarded perm="financeiro"><FolhaPagamento/></Guarded>}/>
         <Route path="/cursos/notas"                   element={<Guarded perm="cursos"><Notas/></Guarded>}/>
         <Route path="/financeiro/inadimplentes"       element={<Guarded perm="financeiro"><Inadimplentes/></Guarded>}/>
         <Route path="/financeiro/fluxo-caixa"         element={<Guarded perm="financeiro"><FluxoCaixa/></Guarded>}/>

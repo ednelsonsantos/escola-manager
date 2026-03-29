@@ -1,4 +1,4 @@
-# 🎓 Escola Manager v5.12
+# 🎓 Escola Manager v5.13
 
 Sistema desktop completo para gestão de escolas de idiomas.
 **React 18 + Electron 29 + SQLite + PizZip · GPL-3.0 · Criado por Ednelson Santos**
@@ -49,7 +49,8 @@ npm run build     # gera instalador .exe para Windows
 | **Alunos** | Cadastro, ficha individual, histórico de pagamentos, paginação, lista de espera, dados de responsável |
 | **Financeiro** | Mensalidades, encargos (multa+juros), desconto antecipado, boleto PDF, WhatsApp |
 | **Cursos** | Turmas com barra de ocupação, professores |
-| **Frequência** | Chamada por turma/aula, conteúdo ministrado, ausência do professor com justificativa, relatório de presença com PDF |
+| **Frequência** | Chamada por turma/aula, grid de aulas em cards horizontais (7/linha, responsivo), grupos por dia do calendário, substituição de professor com validação de conflito, relatório por perfil com filtro de data e calendário customizado, PDF |
+| **Folha de Pagamento** | Geração mensal por professor — CLT recebe salário fixo com desconto proporcional por horas não cumpridas; PJ recebe por hora ministrada com atualização automática ao abrir o módulo |
 | **Recados** | Criação, agendamento e envio de recados por secretaria/professor para alunos/turmas |
 | **Fluxo de Caixa** | Lançamentos manuais de entradas/saídas, gráfico mensal de barras, resumo por categoria |
 | **Grade de Horários** | Grade visual semanal das turmas por dia da semana, cores por idioma |
@@ -226,7 +227,8 @@ escola-v5/
 | `alunos_db` | Alunos — schema v6 com `ls_id`, `dia_vencimento`, dados de responsável, status Lista de Espera |
 | `pagamentos_db` | Pagamentos — schema v6 com `valor_original`, `valor_multa`, `valor_juros`, `valor_desconto`, `dias_atraso` |
 | `eventos_db` | Eventos de agenda — schema v6 completo |
-| `aulas` | Aulas por turma — `conteudo`, `professor_ausente`, `justificativa_ausencia` |
+| `aulas` | Aulas por turma — `conteudo`, `professor_ausente`, `justificativa_ausencia`, `professor_id` (substituto) |
+| `folha_pagamento` | Folha mensal por professor — tipo CLT/PJ, horas normais/extras, bruto, deduções, líquido, status (Aberta/Fechada/Paga) |
 | `presencas` | Presenças por aula e aluno |
 | `recados` | Recados com título, mensagem, prioridade, status e agendamento |
 | `recados_destinatarios` | Destinatários de cada recado (aluno, turma, todos, etc.) |
@@ -318,6 +320,13 @@ O scheduler de recados agendados roda a cada 60s via `setInterval` no `main.js`.
 - [x] **v5.10** — Controle de cancelamento/reposição de aulas: checkbox na chamada, agendamento de reposição com vínculo bidirecional, badges na lista de aulas
 - [x] **v5.11** — Módulo Estoque e Material Didático: CRUD de itens com categorias, movimentações (entrada/saída/ajuste), histórico inline, alertas de estoque mínimo, KPIs
 - [x] **v5.12** — Módulo Certificados: emissão individual e em lote em PDF (A4 paisagem), template configurável com campos de assinatura, pré-visualização via iframe, histórico de emissões por turma/período
+- [x] **v5.12** — Módulo Folha de Pagamento: geração mensal por professor com tipos CLT e PJ; CLT recebe salário fixo com dedução automática por horas não cumpridas; PJ recebe por hora ministrada e o líquido atualiza em tempo real a cada abertura do módulo; horas extras (50%/100%), deduções manuais e status (Aberta → Fechada → Paga)
+- [x] **v5.13** — Frequência: lista de aulas reestruturada em grid horizontal de cards (7 por linha, responsivo ao tamanho da janela) com labels de dia do calendário real (ex: "Dom 29")
+- [x] **v5.13** — Frequência: substituição de professor — validação de conflito de horário (mesmo dia da semana + mesmo horário), substituto contabilizado na sua própria carga horária via `COALESCE(a.professor_id, t.professor_id)`
+- [x] **v5.13** — Frequência: relatório avançado com visibilidade por perfil (admin/sec veem todas as turmas com filtro de professor/aluno; professor vê apenas suas próprias aulas), filtro de período com calendário de intervalo customizado (`CalendarioRangePicker`) via `createPortal`
+- [x] **v5.13** — Frequência: vinculação usuário → professor (`professor_db_id` em `usuarios`), auto-preenchimento ao criar aula com perfil Professor
+- [x] **v5.13** — Carga Horária: `LEFT JOIN turmas_db` + `COALESCE` garantem que substituições contam para o professor que ministrou, não para o titular
+- [x] **v5.13** — Folha de Pagamento: lógica CLT/PJ corrigida — CLT usa `salario_fixo_ref` como base do bruto (não horas × valor); PJ sincroniza `horas_normais` automaticamente ao listar
 
 ### 🔄 Segunda onda — em andamento
 

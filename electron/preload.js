@@ -47,6 +47,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   freqGetPresencas:           (aulaId)             => ipcRenderer.invoke('freq:getPresencas',           aulaId),
   freqSalvarPresencas:        (aulaId, lista, req) => ipcRenderer.invoke('freq:salvarPresencas',        aulaId, lista, req),
   freqEstatisticasFrequencia: (turmaLsId)          => ipcRenderer.invoke('freq:estatisticasFrequencia', turmaLsId),
+  freqRelatorioAvancado:      (filtros)            => ipcRenderer.invoke('freq:relatorioAvancado',      filtros),
 
   // Recados (v5.6)
   // req = { userId, userLogin } para auditoria
@@ -70,6 +71,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   professoresEditar:      (id, dados, req)   => ipcRenderer.invoke('professores:editar',       id, dados, req),
   professoresDeletar:     (id, req)          => ipcRenderer.invoke('professores:deletar',      id, req),
   professoresCargaHoraria:(filtros)          => ipcRenderer.invoke('professores:cargaHoraria', filtros),
+
+  // Folha de Pagamento (v5.12)
+  folhaListar:  (filtros)          => ipcRenderer.invoke('folha:listar',  filtros),
+  folhaGerar:   (dados, req)       => ipcRenderer.invoke('folha:gerar',   dados, req),
+  folhaEditar:  (id, dados, req)   => ipcRenderer.invoke('folha:editar',  id, dados, req),
+  folhaDeletar: (id, req)          => ipcRenderer.invoke('folha:deletar', id, req),
 
   // Alunos (v6 — SQLite)
   alunosListar:  (filtros)          => ipcRenderer.invoke('alunos:listar',  filtros),

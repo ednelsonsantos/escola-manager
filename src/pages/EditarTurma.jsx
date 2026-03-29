@@ -2,32 +2,77 @@
  * EditarTurma.jsx — Tela dedicada para criar ou editar turma
  * Rotas: /cursos/turmas/nova  e  /cursos/turmas/editar/:id
  */
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, Save, BookOpen, AlertCircle, Users, Clock } from 'lucide-react'
-import { useApp } from '../context/AppContext.jsx'
+import { ArrowLeft, Save, BookOpen, AlertCircle, Users, Clock, UserPlus, X, DollarSign } from 'lucide-react'
+import { useApp, formatBRL } from '../context/AppContext.jsx'
 
 const NIVEIS      = ['Básico','Intermediário','Avançado','Conversação','Business']
 const IDIOMAS     = ['Inglês','Espanhol','Francês','Alemão','Italiano','Japonês','Mandarim','Português']
 const COR_IDIOMA  = { Inglês:'#63dcaa',Espanhol:'#f5c542',Francês:'#5b9cf6',Alemão:'#f2617a',Italiano:'#a78bfa' }
 const EMPTY       = { codigo:'', idioma:'', nivel:'Básico', professorId:'', horario:'', vagas:15, ativa:true }
+const DIAS_SEMANA = ['Seg','Ter','Qua','Qui','Sex','Sáb']
+
+function parseHorario(str) {
+  if (!str) return { dias: [], hora: '' }
+  const partes = str.trim().split(' ')
+  const candidatoDias = partes[0] || ''
+  const diasParsed = candidatoDias.split('/').filter(d => DIAS_SEMANA.includes(d))
+  const hora = diasParsed.length ? partes.slice(1).join(' ') : str
+  return { dias: diasParsed, hora }
+}
+
+function buildHorario(dias, hora) {
+  const d = dias.join('/')
+  if (d && hora) return `${d} ${hora}`
+  return d || hora
+}
 
 export default function EditarTurma() {
   const navigate  = useNavigate()
   const { id }    = useParams()
   const isNova    = !id
-  const { turmas, addTurma, updateTurma, professores, alunos } = useApp()
+  const { turmas, addTurma, updateTurma, professores, alunos, updateAluno } = useApp()
 
   const [form,     setForm]     = useState({ ...EMPTY })
   const [erros,    setErros]    = useState({})
   const [salvando, setSalvando] = useState(false)
+  const [diasSel,  setDiasSel]  = useState([])
+  const [horaTxt,  setHoraTxt]  = useState('')
+
+  // Garante que o form só é inicializado UMA VEZ, mesmo que `turmas` mude
+  const formIniciado = useRef(false)
 
   useEffect(() => {
-    if (!isNova && id) {
+    if (!isNova && id && !formIniciado.current) {
       const t = turmas.find(t => String(t.id) === String(id))
-      if (t) setForm({ ...EMPTY, ...t })
+      if (t) {
+        setForm({ ...EMPTY, ...t })
+        const parsed = parseHorario(t.horario || '')
+        setDiasSel(parsed.dias)
+        setHoraTxt(parsed.hora)
+        formIniciado.current = true
+      }
     }
   }, [id, turmas, isNova])
+
+  const toggleDia = useCallback((dia) => {
+    setDiasSel(prev => {
+      const novos = prev.includes(dia)
+        ? prev.filter(d => d !== dia)
+        : [...prev, dia].sort((a, b) => DIAS_SEMANA.indexOf(a) - DIAS_SEMANA.indexOf(b))
+      setForm(x => ({ ...x, horario: buildHorario(novos, horaTxt) }))
+      setErros(e => ({ ...e, horario: '' }))
+      return novos
+    })
+  }, [horaTxt])
+
+  const atualizarHora = useCallback((val) => {
+    setHoraTxt(val)
+    setForm(x => ({ ...x, horario: buildHorario(diasSel, val) }))
+    setErros(e => ({ ...e, horario: '' }))
+  }, [diasSel])
 
   function f(k, v) { setForm(x => ({ ...x, [k]: v })); setErros(e => ({ ...e, [k]: '' })) }
 
@@ -50,10 +95,92 @@ export default function EditarTurma() {
 
   function cancelar() { navigate('/cursos') }
 
-  const prof          = professores.find(p => p.id === Number(form.professorId))
-  const matriculados  = !isNova ? alunos.filter(a => a.turmaId === Number(id) && a.status === 'Ativo').length : 0
-  const ocup          = form.vagas ? Math.min(100, Math.round(matriculados / form.vagas * 100)) : 0
-  const cor           = COR_IDIOMA[form.idioma] || '#8b949e'
+  const [showAddAluno,    setShowAddAluno]    = useState(false)
+  const [alunoSelecionado, setAlunoSelecionado] = useState('')
+  const [mensalidadeAdd,  setMensalidadeAdd]  = useState('')
+  const [adicionando,     setAdicionando]     = useState(false)
+
+  const prof = professores.find(p => p.id === Number(form.professorId))
+  const cor  = COR_IDIOMA[form.idioma] || '#8b949e'
+
+  // Alunos que têm vínculo com esta turma (para exibição na lista)
+  const alunosNaTurma = !isNova
+    ? alunos.filter(a => {
+        if (Number(a.turmaId) === Number(id)) return true
+        if (Array.isArray(a.matriculas)) return a.matriculas.some(m => Number(m.turmaId) === Number(id))
+        return false
+      })
+    : []
+
+  // Apenas os que efetivamente ocupam uma vaga:
+  // Ativo sempre ocupa; Inativo/Trancado só ocupa se manterVaga=true
+  const alunosOcupandoVaga = alunosNaTurma.filter(a =>
+    a.status === 'Ativo' ||
+    ((a.status === 'Inativo' || a.status === 'Trancado') && a.manterVaga)
+  )
+
+  const matriculados = alunosOcupandoVaga.length
+  const ocup         = form.vagas ? Math.min(100, Math.round(matriculados / form.vagas * 100)) : 0
+  const vagasDisp    = Math.max(0, (form.vagas || 0) - matriculados)
+
+  // Alunos aguardando especificamente esta turma — baseado em turmasEsperaIds,
+  // independente do status (pode já ser Ativo em outro curso mas ainda aguardar este)
+  const alunosEsperandoEssaTurma = !isNova
+    ? alunos.filter(a => {
+        if (alunosNaTurma.some(m => m.id === a.id)) return false // já está na turma
+        if (Array.isArray(a.turmasEsperaIds) && a.turmasEsperaIds.length > 0)
+          return a.turmasEsperaIds.includes(Number(id))
+        // legado: só checa turmaEsperaId se ainda estiver em Lista de Espera
+        return a.status === 'Lista de Espera' && Number(a.turmaEsperaId) === Number(id)
+      })
+    : []
+
+  // Demais ativos que não estão na turma nem na lista de espera desta turma
+  const alunosAtivosDisponiveis = alunos.filter(a =>
+    a.status === 'Ativo' &&
+    !alunosNaTurma.some(m => m.id === a.id) &&
+    !alunosEsperandoEssaTurma.some(m => m.id === a.id)
+  )
+
+  const alunosDisponiveis = [...alunosEsperandoEssaTurma, ...alunosAtivosDisponiveis]
+
+  async function adicionarAluno() {
+    if (!alunoSelecionado) return
+    const aluno = alunos.find(a => a.id === Number(alunoSelecionado))
+    if (!aluno) return
+    setAdicionando(true)
+
+    // Preserva matrículas existentes e acrescenta a nova
+    const matriculasExistentes = Array.isArray(aluno.matriculas) && aluno.matriculas.length > 0
+      ? aluno.matriculas
+      : (aluno.turmaId ? [{ turmaId: aluno.turmaId, mensalidade: aluno.mensalidade || 0 }] : [])
+
+    const novasMatriculas = [
+      ...matriculasExistentes.filter(m => Number(m.turmaId) !== Number(id)),
+      { turmaId: Number(id), mensalidade: Number(mensalidadeAdd) || 0 },
+    ]
+
+    // Sempre remove esta turma de turmasEsperaIds, independente do status atual
+    const turmasEsperaRestantes = Array.isArray(aluno.turmasEsperaIds)
+      ? aluno.turmasEsperaIds.filter(tid => tid !== Number(id))
+      : []
+
+    await updateAluno(aluno.id, {
+      ...aluno,
+      status: 'Ativo',
+      matriculas: novasMatriculas,
+      turmaId: aluno.turmaId || Number(id),
+      mensalidade: novasMatriculas.reduce((s, m) => s + (Number(m.mensalidade) || 0), 0),
+      turmaEsperaId:   turmasEsperaRestantes[0] ?? null,
+      turmasEsperaIds: turmasEsperaRestantes,
+      cursoEspera:     turmasEsperaRestantes.length === 0 ? '' : aluno.cursoEspera,
+    })
+
+    setShowAddAluno(false)
+    setAlunoSelecionado('')
+    setMensalidadeAdd('')
+    setAdicionando(false)
+  }
 
   return (
     <div className="fade-up" style={{ maxWidth: 860, margin: '0 auto' }}>
@@ -136,10 +263,38 @@ export default function EditarTurma() {
                 )}
               </div>
 
-              <div className="field">
-                <label>Horário</label>
-                <input className="input" placeholder="Ex: Seg/Qua 18h30"
-                  value={form.horario} onChange={e=>f('horario',e.target.value)}/>
+              <div className="field form-full">
+                <label style={{display:'flex',alignItems:'center',gap:6}}>
+                  <Clock size={12} style={{color:'var(--text-3)'}}/> Horário
+                </label>
+                {/* Dias da semana */}
+                <div style={{display:'flex',gap:6,marginBottom:8,flexWrap:'wrap'}}>
+                  {DIAS_SEMANA.map(dia => {
+                    const ativo = diasSel.includes(dia)
+                    return (
+                      <button key={dia} type="button"
+                        onClick={() => toggleDia(dia)}
+                        style={{
+                          padding:'5px 11px', borderRadius:7, fontSize:12, fontWeight:600,
+                          border: `1px solid ${ativo ? 'var(--accent)' : 'var(--border)'}`,
+                          background: ativo ? 'var(--accent)' : 'var(--surface-2)',
+                          color: ativo ? 'var(--bg-app)' : 'var(--text-2)',
+                          cursor:'pointer', transition:'all .15s',
+                        }}>
+                        {dia}
+                      </button>
+                    )
+                  })}
+                </div>
+                {/* Campo de hora */}
+                <input className="input" placeholder="Ex: 18h30 ou 08:00–10:00"
+                  value={horaTxt} onChange={e => atualizarHora(e.target.value)}
+                  style={{marginBottom:4}}/>
+                {form.horario && (
+                  <div style={{fontSize:11,color:'var(--text-3)',marginTop:3}}>
+                    Resultado: <strong style={{color:'var(--text-1)'}}>{form.horario}</strong>
+                  </div>
+                )}
               </div>
 
               <div className="field">
@@ -163,6 +318,86 @@ export default function EditarTurma() {
               </div>
             </div>
           </div>
+
+          {/* ── ALUNOS DA TURMA (só ao editar) ── */}
+          {!isNova && (
+            <div className="card" style={{padding:'20px 22px'}}>
+              <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:16}}>
+                <div style={{fontFamily:"'Syne',sans-serif",fontSize:13,fontWeight:700,color:'var(--text-1)',display:'flex',alignItems:'center',gap:7}}>
+                  <Users size={14} style={{color:'var(--accent)'}}/> Alunos Matriculados
+                  <span style={{fontSize:11,fontWeight:500,color:'var(--text-3)',marginLeft:4}}>
+                    ({alunosNaTurma.length}/{form.vagas || '?'})
+                  </span>
+                </div>
+                {vagasDisp > 0 && (
+                  <button className="btn btn-primary btn-sm"
+                    onClick={() => { setShowAddAluno(true); setAlunoSelecionado(''); setMensalidadeAdd('') }}
+                    style={{gap:6,padding:'5px 12px'}}>
+                    <UserPlus size={13}/> Adicionar Aluno
+                  </button>
+                )}
+                {vagasDisp === 0 && (
+                  <span style={{fontSize:11,color:'var(--red)',fontWeight:600}}>Turma lotada</span>
+                )}
+              </div>
+
+              {alunosNaTurma.length === 0 ? (
+                <div style={{textAlign:'center',padding:'24px 0',color:'var(--text-3)',fontSize:13}}>
+                  Nenhum aluno matriculado nesta turma.
+                </div>
+              ) : (
+                <div style={{display:'flex',flexDirection:'column',gap:6}}>
+                  {alunosNaTurma.map(a => {
+                    const mensalidade = Array.isArray(a.matriculas)
+                      ? a.matriculas.find(m => Number(m.turmaId) === Number(id))?.mensalidade
+                      : (Number(a.turmaId) === Number(id) ? a.mensalidade : null)
+                    return (
+                      <div key={a.id} style={{
+                        display:'flex', alignItems:'center', gap:10,
+                        padding:'8px 12px', borderRadius:8,
+                        background:'var(--surface-2)', border:'1px solid var(--border)',
+                      }}>
+                        <div style={{
+                          width:30,height:30,borderRadius:'50%',flexShrink:0,
+                          background:'var(--accent)',color:'var(--bg-app)',
+                          display:'flex',alignItems:'center',justifyContent:'center',
+                          fontSize:11,fontWeight:800,
+                        }}>
+                          {(a.nome||'?').split(' ').slice(0,2).map(p=>p[0]).join('').toUpperCase()}
+                        </div>
+                        <div style={{flex:1,minWidth:0}}>
+                          <div style={{fontSize:13,fontWeight:600,color:'var(--text-1)',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{a.nome}</div>
+                          <div style={{fontSize:11,color:'var(--text-3)'}}>{a.telefone || a.email || '—'}</div>
+                        </div>
+                        <div style={{textAlign:'right',flexShrink:0}}>
+                          {mensalidade != null && (
+                            <div style={{fontSize:12,fontWeight:600,color:'var(--accent)'}}>{formatBRL(mensalidade)}</div>
+                          )}
+                          <span style={{
+                            fontSize:10,fontWeight:600,
+                            color: a.status==='Ativo' ? 'var(--accent)' : 'var(--yellow)',
+                            background: (a.status==='Ativo' ? 'var(--accent)' : 'var(--yellow)')+'22',
+                            padding:'1px 7px',borderRadius:10,
+                          }}>{a.status}</span>
+                          {(a.status==='Inativo'||a.status==='Trancado') && (
+                            <span style={{fontSize:10,color: a.manterVaga ? 'var(--blue)' : 'var(--text-3)',marginTop:2,display:'block'}}>
+                              {a.manterVaga ? `Vaga reservada${a.manterVagaDias ? ` (${a.manterVagaDias}d)` : ''}` : 'Sem reserva de vaga'}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+
+              {vagasDisp > 0 && (
+                <div style={{marginTop:10,fontSize:11,color:'var(--text-3)',textAlign:'right'}}>
+                  {vagasDisp} vaga{vagasDisp !== 1 ? 's' : ''} disponível{vagasDisp !== 1 ? 'is' : ''}
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* ── PAINEL LATERAL ── */}
@@ -244,6 +479,76 @@ export default function EditarTurma() {
           </div>
         </div>
       </div>
+
+      {/* ── MODAL ADICIONAR ALUNO ── */}
+      {showAddAluno && createPortal(
+        <div
+          style={{position:'fixed',inset:0,background:'rgba(0,0,0,.55)',zIndex:9999,display:'flex',alignItems:'center',justifyContent:'center'}}
+          onMouseDown={e => { if (e.target === e.currentTarget) e.stopPropagation() }}>
+          <div style={{background:'var(--bg-card)',borderRadius:14,padding:'24px 26px',width:420,boxShadow:'0 20px 60px rgba(0,0,0,.4)'}}>
+            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:18}}>
+              <div style={{fontFamily:"'Syne',sans-serif",fontSize:15,fontWeight:800,color:'var(--text-1)',display:'flex',alignItems:'center',gap:8}}>
+                <UserPlus size={16} style={{color:'var(--accent)'}}/> Adicionar Aluno à Turma
+              </div>
+              <button className="btn btn-ghost btn-sm" style={{padding:4}}
+                onClick={() => setShowAddAluno(false)}>
+                <X size={16}/>
+              </button>
+            </div>
+
+            <div style={{marginBottom:14}}>
+              <label style={{fontSize:12,fontWeight:600,color:'var(--text-2)',display:'block',marginBottom:6}}>Aluno</label>
+              <select className="select" value={alunoSelecionado}
+                onChange={e => setAlunoSelecionado(e.target.value)}>
+                <option value="">Selecionar aluno...</option>
+                {alunosEsperandoEssaTurma.length > 0 && (
+                  <optgroup label="— Lista de Espera (aguardando esta turma)">
+                    {alunosEsperandoEssaTurma.map(a => (
+                      <option key={a.id} value={a.id}>{a.nome}</option>
+                    ))}
+                  </optgroup>
+                )}
+                {alunosAtivosDisponiveis.length > 0 && (
+                  <optgroup label="— Outros alunos ativos">
+                    {alunosAtivosDisponiveis.map(a => (
+                      <option key={a.id} value={a.id}>{a.nome}</option>
+                    ))}
+                  </optgroup>
+                )}
+              </select>
+              {alunosDisponiveis.length === 0 && (
+                <div style={{fontSize:11,color:'var(--text-3)',marginTop:5}}>
+                  Nenhum aluno disponível para adicionar.
+                </div>
+              )}
+            </div>
+
+            <div style={{marginBottom:20}}>
+              <label style={{fontSize:12,fontWeight:600,color:'var(--text-2)',display:'block',marginBottom:6}}>Mensalidade (R$)</label>
+              <div style={{position:'relative'}}>
+                <DollarSign size={13} style={{position:'absolute',left:10,top:'50%',transform:'translateY(-50%)',color:'var(--text-3)'}}/>
+                <input className="input" type="number" min="0" step="0.01" placeholder="0,00"
+                  value={mensalidadeAdd} onChange={e => setMensalidadeAdd(e.target.value)}
+                  style={{paddingLeft:30}}/>
+              </div>
+            </div>
+
+            <div style={{display:'flex',gap:8,justifyContent:'flex-end'}}>
+              <button className="btn btn-secondary" onClick={() => setShowAddAluno(false)}>
+                Cancelar
+              </button>
+              <button className="btn btn-primary" disabled={!alunoSelecionado || adicionando}
+                onClick={adicionarAluno}>
+                {adicionando
+                  ? <span style={{display:'inline-block',width:14,height:14,border:'2px solid rgba(0,0,0,.3)',borderTopColor:'#0d1a12',borderRadius:'50%',animation:'spin .7s linear infinite'}}/>
+                  : <><UserPlus size={13}/> Adicionar</>
+                }
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
     </div>
   )
 }

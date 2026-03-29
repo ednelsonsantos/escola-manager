@@ -4,7 +4,7 @@
  * Abre como uma rota própria (/usuarios/novo e /usuarios/editar/:id)
  * em vez de um modal, resolvendo o problema da barra de rolagem.
  */
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
   ArrowLeft, Save, Eye, EyeOff, Shield, Check,
@@ -47,30 +47,34 @@ export default function EditarUsuario() {
   const isNovo   = !id
 
   const { usuarios, perfis, addUsuario, updateUsuario } = useUsuarios()
-  const { showToast } = useApp()
+  const { showToast, professores } = useApp()
 
   const [form,    setForm]    = useState({
     nome:'', login:'', email:'', senha:'',
-    perfilId:'', ativo:1, avatarCor:'#63dcaa',
+    perfilId:'', ativo:1, avatarCor:'#63dcaa', professorDbId:'',
   })
   const [showPw,  setShowPw]  = useState(false)
   const [erros,   setErros]   = useState({})
   const [salvando,setSalvando]= useState(false)
 
-  // Carrega usuário existente ao editar
+  const formIniciado = useRef(false)
+
+  // Carrega usuário existente ao editar (apenas uma vez)
   useEffect(() => {
-    if (!isNovo && id) {
+    if (!isNovo && id && !formIniciado.current) {
       const u = usuarios.find(u => String(u.id) === String(id))
       if (u) {
         setForm({
-          nome:      u.nome       || '',
-          login:     u.login      || '',
-          email:     u.email      || '',
-          senha:     '',
-          perfilId:  u.perfil_id  || '',
-          ativo:     u.ativo ?? 1,
-          avatarCor: u.avatar_cor || '#63dcaa',
+          nome:           u.nome            || '',
+          login:          u.login           || '',
+          email:          u.email           || '',
+          senha:          '',
+          perfilId:       u.perfil_id       || '',
+          ativo:          u.ativo ?? 1,
+          avatarCor:      u.avatar_cor      || '#63dcaa',
+          professorDbId:  u.professor_db_id || '',
         })
+        formIniciado.current = true
       }
     }
   }, [id, usuarios, isNovo])
@@ -96,9 +100,10 @@ export default function EditarUsuario() {
     const e = validar()
     if (Object.keys(e).length) { setErros(e); return }
     setSalvando(true)
+    const payload = { ...form, professor_db_id: form.professorDbId ? Number(form.professorDbId) : null }
     const res = isNovo
-      ? await addUsuario(form)
-      : await updateUsuario(Number(id), form)
+      ? await addUsuario(payload)
+      : await updateUsuario(Number(id), payload)
     setSalvando(false)
     if (res.ok) {
       showToast(isNovo ? 'Usuário criado!' : 'Usuário atualizado!')
@@ -311,6 +316,33 @@ export default function EditarUsuario() {
                   </select>
                 </div>
               </div>
+
+              {/* Vínculo com professor — aparece só para perfil Professor */}
+              {perfilSel?.nome === 'Professor' && (
+                <div className="field">
+                  <label style={{ display:'flex', alignItems:'center', gap:5 }}>
+                    Vincular ao professor
+                    <span style={{ fontSize:10, color:'var(--text-3)', fontWeight:400 }}>
+                      (identifica quem registra a frequência)
+                    </span>
+                  </label>
+                  <select
+                    className="select"
+                    value={form.professorDbId}
+                    onChange={e => f('professorDbId', e.target.value)}
+                  >
+                    <option value="">— não vinculado —</option>
+                    {(professores || []).filter(p => p.ativo).map(p => (
+                      <option key={p.id} value={p.id}>{p.nome} {p.idioma ? `· ${p.idioma}` : ''}</option>
+                    ))}
+                  </select>
+                  {form.professorDbId && (
+                    <span style={{ fontSize:11, color:'var(--accent)', marginTop:3, display:'block' }}>
+                      Este usuário registrará frequência como {professores?.find(p=>String(p.id)===String(form.professorDbId))?.nome}
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </div>

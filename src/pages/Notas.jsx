@@ -293,7 +293,7 @@ export default function Notas() {
     setAlteracoes({})
     try {
       const [al, nt] = await Promise.all([
-        window.electronAPI.alunosListar({ turma_id: Number(turmaSel), status: 'Ativo' }).catch(() => []),
+        window.electronAPI.alunosListar({ turmaId: Number(turmaSel), status: 'Ativo' }).catch(() => []),
         window.electronAPI.notasListar({ turma_id: Number(turmaSel), periodo: periodoSel }).catch(() => []),
       ])
       setAlunos((al || []).sort((a, b) => a.nome.localeCompare(b.nome)))

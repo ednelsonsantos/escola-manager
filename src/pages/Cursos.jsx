@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { Plus, Pencil, Trash2, Users, BookOpen, Search, X, Clock, AlertTriangle, Phone } from 'lucide-react'
+import { Plus, Pencil, Trash2, Users, BookOpen, Search, X, Clock, AlertTriangle, Phone, Briefcase } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useApp, formatBRL } from '../context/AppContext.jsx'
 import { ConfirmModal } from '../components/Modal.jsx'
@@ -30,7 +30,15 @@ export default function Cursos() {
       (!q || a.nome.toLowerCase().includes(q) || (a.telefone||'').includes(q) || (a.respNome||'').toLowerCase().includes(q))
   })
 
-  function alunosDaTurma(id) { return alunos.filter(a=>a.turmaId===id && a.status==='Ativo').length }
+  function alunosDaTurma(id) {
+    return alunos.filter(a => {
+      const temTurma = a.turmaId === id ||
+        (Array.isArray(a.matriculas) && a.matriculas.some(m => Number(m.turmaId) === id))
+      if (!temTurma) return false
+      return a.status === 'Ativo' ||
+        ((a.status === 'Inativo' || a.status === 'Trancado') && a.manterVaga)
+    }).length
+  }
   function getProfNome(id)   { return professores.find(p=>p.id===id)?.nome || '—' }
 
   function delTurma() { deleteTurma(confirm.item.id); setConfirm(null) }
@@ -87,7 +95,15 @@ export default function Cursos() {
               const nivel_color = t.nivel==='Básico'?'bg-green':t.nivel==='Intermediário'?'bg-yellow':t.nivel==='Avançado'?'bg-red':'bg-blue'
               const vagasLivres = t.vagas - matriculados
               // Alunos na lista de espera que querem esta turma
-              const esperandoEssaTurma = alunos.filter(a => a.status==='Lista de Espera' && a.turmaId===t.id).length
+              const esperandoEssaTurma = alunos.filter(a => {
+                // Quem já está matriculado não conta na espera
+                const jaMatriculado = Number(a.turmaId) === t.id ||
+                  (Array.isArray(a.matriculas) && a.matriculas.some(m => Number(m.turmaId) === t.id))
+                if (jaMatriculado) return false
+                if (Array.isArray(a.turmasEsperaIds) && a.turmasEsperaIds.length > 0)
+                  return a.turmasEsperaIds.includes(t.id)
+                return a.status === 'Lista de Espera' && Number(a.turmaEsperaId) === t.id
+              }).length
               return (
                 <div key={t.id} className="curso-card">
                   <div className="curso-card-head">
@@ -151,13 +167,18 @@ export default function Cursos() {
             ? <div className="empty"><Users size={40}/><p>Nenhum professor encontrado.</p></div>
             : <table>
                 <thead><tr>
-                  <th>Nome</th><th>Idioma</th><th>E-mail</th><th>Telefone</th><th>Turmas</th><th>Alunos</th><th>Status</th><th style={{width:90}}>Ações</th>
+                  <th>Nome</th><th>Idioma</th><th>Contrato</th><th>E-mail</th><th>Turmas</th><th>Alunos</th><th>Status</th><th style={{width:90}}>Ações</th>
                 </tr></thead>
                 <tbody>
                   {filtProfs.map(p => {
-                    const turmasProf = turmas.filter(t=>t.professorId===p.id)
-                    const alunosProf = turmasProf.reduce((s,t)=>s+alunosDaTurma(t.id),0)
-                    const cor = CORES_IDIOMA[p.idioma]||CORES_IDIOMA.default
+                    const turmasProf  = turmas.filter(t=>t.professorId===p.id)
+                    const alunosProf  = turmasProf.reduce((s,t)=>s+alunosDaTurma(t.id),0)
+                    const cor         = CORES_IDIOMA[p.idioma]||CORES_IDIOMA.default
+                    const isCLT       = p.tipo_contrato !== 'PJ'
+                    const corContrato = isCLT ? '#63dcaa' : '#5b9cf6'
+                    const valorHora   = isCLT && p.salario_fixo > 0 && p.carga_horaria_mensal > 0
+                      ? p.salario_fixo / p.carga_horaria_mensal
+                      : null
                     return (
                       <tr key={p.id}>
                         <td>
@@ -168,9 +189,25 @@ export default function Cursos() {
                             <span className="td-name">{p.nome}</span>
                           </div>
                         </td>
-                        <td><span className="badge" style={{background:cor+'22',color:cor}}>{p.idioma}</span></td>
+                        <td><span className="badge" style={{background:cor+'22',color:cor}}>{p.idioma||'—'}</span></td>
+                        <td>
+                          <div style={{display:'flex',flexDirection:'column',gap:2}}>
+                            <span style={{
+                              fontSize:11,fontWeight:700,padding:'2px 8px',borderRadius:20,alignSelf:'flex-start',
+                              background:corContrato+'22',color:corContrato,
+                            }}>{p.tipo_contrato||'CLT'}</span>
+                            {isCLT && p.salario_fixo > 0 && (
+                              <span style={{fontSize:11,color:'var(--text-3)'}}>
+                                {formatBRL(p.salario_fixo)}/mês
+                                {valorHora !== null && <> · {formatBRL(valorHora)}/h</>}
+                              </span>
+                            )}
+                            {!isCLT && p.valor_hora_pj > 0 && (
+                              <span style={{fontSize:11,color:'var(--text-3)'}}>{formatBRL(p.valor_hora_pj)}/h</span>
+                            )}
+                          </div>
+                        </td>
                         <td className="td-muted">{p.email||'—'}</td>
-                        <td className="td-muted">{p.telefone||'—'}</td>
                         <td><strong style={{color:'var(--text-1)'}}>{turmasProf.length}</strong></td>
                         <td><strong style={{color:'var(--text-1)'}}>{alunosProf}</strong></td>
                         <td>{p.ativo?<span className="badge bg-green">Ativo</span>:<span className="badge bg-gray">Inativo</span>}</td>
