@@ -6,6 +6,10 @@ Sistema desktop completo para gestão de escolas de idiomas.
 
 ---
 
+![Escola Manager v5.14](escola_manager_v5.14.gif)
+
+---
+
 ## 🚀 Instalação
 
 ```bash
