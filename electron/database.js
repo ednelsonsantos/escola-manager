@@ -2147,6 +2147,254 @@ function deletarAluno(id, _req = {}) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// PAGAMENTOS (v6)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function _calcularEncargosDb(valorOriginal, vencimento, dataRef, fin) {
+  const multa = fin?.multaAtraso    ?? 10
+  const juros = fin?.jurosAtraso    ?? 2
+  const ref   = new Date((dataRef || new Date().toISOString().split('T')[0]) + 'T00:00:00')
+  const venc  = new Date(vencimento + 'T00:00:00')
+  const dias  = Math.max(0, Math.floor((ref - venc) / 86400000))
+  if (dias <= 0) return { valorTotal: valorOriginal, valorMulta: 0, valorJuros: 0, dias: 0 }
+  const valorMulta = Math.round(valorOriginal * (multa / 100) * 100) / 100
+  const diasJuros  = Math.max(0, dias - 1)
+  const valorJuros = Math.round(valorOriginal * (juros / 100) * (diasJuros / 30) * 100) / 100
+  return { valorTotal: Math.round((valorOriginal + valorMulta + valorJuros) * 100) / 100, valorMulta, valorJuros, dias }
+}
+
+function listarPagamentos({ mes = null, alunoId = null, status = null } = {}) {
+  dbOk()
+  const where = []; const params = []
+  if (mes)     { where.push('p.mes = ?');        params.push(mes) }
+  if (alunoId) { where.push('p.aluno_id = ?');   params.push(alunoId) }
+  if (status)  { where.push('p.status = ?');     params.push(status) }
+  const wc = where.length ? 'WHERE ' + where.join(' AND ') : ''
+  return db.prepare(`
+    SELECT p.*, a.nome AS aluno_nome, a.ls_id AS aluno_ls_id
+    FROM pagamentos_db p
+    JOIN alunos_db a ON a.id = p.aluno_id
+    ${wc}
+    ORDER BY p.vencimento
+  `).all(...params).map(r => ({
+    id:            r.id,
+    alunoId:       r.aluno_id,
+    alunoLsId:     r.aluno_ls_id,
+    alunoNome:     r.aluno_nome,
+    valor:         r.valor,
+    valorOriginal: r.valor_original ?? r.valor,
+    valorMulta:    r.valor_multa   ?? 0,
+    valorJuros:    r.valor_juros   ?? 0,
+    valorDesconto: r.valor_desconto ?? 0,
+    diasAtraso:    r.dias_atraso   ?? 0,
+    mes:           r.mes,
+    vencimento:    r.vencimento,
+    status:        r.status,
+    dataPgto:      r.data_pgto     || null,
+    obs:           r.obs           || '',
+  }))
+}
+
+function criarPagamento(d, _req = {}) {
+  dbOk()
+  const info = db.prepare(`
+    INSERT INTO pagamentos_db
+      (aluno_id, valor, valor_original, valor_multa, valor_juros, valor_desconto, dias_atraso, mes, vencimento, status, data_pgto, obs)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    d.alunoId ?? d.aluno_id,
+    d.valor,
+    d.valorOriginal ?? d.valor_original ?? d.valor,
+    d.valorMulta    ?? d.valor_multa    ?? 0,
+    d.valorJuros    ?? d.valor_juros    ?? 0,
+    d.valorDesconto ?? d.valor_desconto ?? 0,
+    d.diasAtraso    ?? d.dias_atraso    ?? 0,
+    d.mes,
+    d.vencimento,
+    d.status    || 'Pendente',
+    d.dataPgto  ?? d.data_pgto  ?? null,
+    d.obs       || '',
+  )
+  return { ok: true, id: info.lastInsertRowid }
+}
+
+function editarPagamento(id, d, _req = {}) {
+  dbOk()
+  const atual = db.prepare('SELECT * FROM pagamentos_db WHERE id = ?').get(id)
+  if (!atual) return { ok: false, erro: 'Pagamento não encontrado' }
+  db.prepare(`
+    UPDATE pagamentos_db SET
+      valor=?, valor_original=?, valor_multa=?, valor_juros=?, valor_desconto=?,
+      dias_atraso=?, status=?, data_pgto=?, obs=?
+    WHERE id=?
+  `).run(
+    d.valor         ?? atual.valor,
+    d.valorOriginal ?? d.valor_original ?? atual.valor_original ?? atual.valor,
+    d.valorMulta    ?? d.valor_multa    ?? atual.valor_multa    ?? 0,
+    d.valorJuros    ?? d.valor_juros    ?? atual.valor_juros    ?? 0,
+    d.valorDesconto ?? d.valor_desconto ?? atual.valor_desconto ?? 0,
+    d.diasAtraso    ?? d.dias_atraso    ?? atual.dias_atraso    ?? 0,
+    d.status        ?? atual.status,
+    d.dataPgto      ?? d.data_pgto      ?? atual.data_pgto      ?? null,
+    d.obs           ?? atual.obs        ?? '',
+    id,
+  )
+  registrarLog({ usuarioId: _req.userId, usuarioLogin: _req.userLogin || 'sistema', modulo: 'financeiro', acao: 'editar_pagamento', entidadeId: id, entidadeNome: '', detalhe: `Pagamento ID ${id} editado` })
+  return { ok: true }
+}
+
+function deletarPagamento(id, _req = {}) {
+  dbOk()
+  const p = db.prepare('SELECT id FROM pagamentos_db WHERE id = ?').get(id)
+  if (!p) return { ok: false, erro: 'Pagamento não encontrado' }
+  db.prepare('DELETE FROM pagamentos_db WHERE id = ?').run(id)
+  registrarLog({ usuarioId: _req.userId, usuarioLogin: _req.userLogin || 'sistema', modulo: 'financeiro', acao: 'excluir_pagamento', entidadeId: id, entidadeNome: '', detalhe: `Lançamento ID ${id} removido`, nivel: 'aviso' })
+  return { ok: true }
+}
+
+function registrarPagamentoDb(id, dataPgto, fin, _req = {}) {
+  dbOk()
+  const pgto = db.prepare('SELECT * FROM pagamentos_db WHERE id = ?').get(id)
+  if (!pgto) return { ok: false, erro: 'Pagamento não encontrado' }
+  const dataEfetiva    = dataPgto || new Date().toISOString().split('T')[0]
+  const descPct        = fin?.descontoAntecipacao ?? 5
+  const valorBase      = pgto.valor_original ?? pgto.valor
+  let valorFinal       = valorBase
+  let valorDesconto    = 0
+  let valorMulta       = 0
+  let valorJuros       = 0
+  let diasAtraso       = 0
+
+  if (dataEfetiva < pgto.vencimento && descPct > 0) {
+    valorDesconto = Math.round(valorBase * (descPct / 100) * 100) / 100
+    valorFinal    = Math.round((valorBase - valorDesconto) * 100) / 100
+  } else if (dataEfetiva > pgto.vencimento) {
+    const enc  = _calcularEncargosDb(valorBase, pgto.vencimento, dataEfetiva, fin)
+    valorFinal  = enc.valorTotal
+    valorMulta  = enc.valorMulta
+    valorJuros  = enc.valorJuros
+    diasAtraso  = enc.dias
+  }
+
+  db.prepare(`
+    UPDATE pagamentos_db SET
+      status='Pago', data_pgto=?, valor=?, valor_original=?,
+      valor_multa=?, valor_juros=?, valor_desconto=?, dias_atraso=?
+    WHERE id=?
+  `).run(dataEfetiva, valorFinal, valorBase, valorMulta, valorJuros, valorDesconto, diasAtraso, id)
+
+  const msg = valorDesconto > 0
+    ? `Pago com desconto de R$ ${valorDesconto.toFixed(2)}`
+    : (valorMulta + valorJuros) > 0
+      ? `Pago com encargos de R$ ${(valorMulta + valorJuros).toFixed(2)}`
+      : 'Pagamento registrado'
+  registrarLog({ usuarioId: _req.userId, usuarioLogin: _req.userLogin || 'sistema', modulo: 'financeiro', acao: 'registrar_pagamento', entidadeId: id, entidadeNome: '', detalhe: msg })
+  return { ok: true, valorDesconto, valorMulta, valorJuros }
+}
+
+function gerarMensalidadesDb(mes, fin, _req = {}) {
+  dbOk()
+  const ativos     = db.prepare("SELECT id, mensalidade, dia_vencimento FROM alunos_db WHERE status='Ativo'").all()
+  const existentes = new Set(
+    db.prepare('SELECT aluno_id FROM pagamentos_db WHERE mes = ?').all(mes).map(r => r.aluno_id)
+  )
+  const stmt = db.prepare(`
+    INSERT INTO pagamentos_db (aluno_id, valor, valor_original, mes, vencimento, status)
+    VALUES (?, ?, ?, ?, ?, 'Pendente')
+  `)
+  const inserir = db.transaction(() => {
+    let count = 0
+    for (const a of ativos) {
+      if (existentes.has(a.id)) continue
+      const dia  = String(a.dia_vencimento || 10).padStart(2, '0')
+      const venc = `${mes}-${dia}`
+      stmt.run(a.id, a.mensalidade, a.mensalidade, mes, venc)
+      count++
+    }
+    return count
+  })
+  const gerados = inserir()
+  if (gerados > 0)
+    registrarLog({ usuarioId: _req.userId, usuarioLogin: _req.userLogin || 'sistema', modulo: 'financeiro', acao: 'gerar_mensalidades', detalhe: `${gerados} mensalidades geradas para ${mes}` })
+  return { ok: true, gerados }
+}
+
+function marcarAtrasadosDb(mes, fin, _req = {}) {
+  dbOk()
+  const hoje     = new Date().toISOString().split('T')[0]
+  const pendentes = db.prepare(
+    "SELECT * FROM pagamentos_db WHERE mes=? AND status='Pendente' AND vencimento < ?"
+  ).all(mes, hoje)
+  const stmt = db.prepare(`
+    UPDATE pagamentos_db SET
+      status='Atrasado', valor_original=COALESCE(valor_original, valor),
+      valor=?, valor_multa=?, valor_juros=?, dias_atraso=?
+    WHERE id=?
+  `)
+  const atualizar = db.transaction(() => {
+    for (const p of pendentes) {
+      const base = p.valor_original ?? p.valor
+      const enc  = _calcularEncargosDb(base, p.vencimento, hoje, fin)
+      stmt.run(enc.valorTotal, enc.valorMulta, enc.valorJuros, enc.dias, p.id)
+    }
+  })
+  atualizar()
+  if (pendentes.length > 0)
+    registrarLog({ usuarioId: _req.userId, usuarioLogin: _req.userLogin || 'sistema', modulo: 'financeiro', acao: 'marcar_atrasados', detalhe: `${pendentes.length} pagamentos marcados como atrasados em ${mes}` })
+  return { ok: true, marcados: pendentes.length }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// EVENTOS (v6)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function listarEventos({ data = null, tipo = null } = {}) {
+  dbOk()
+  const where = []; const params = []
+  if (data) { where.push('data = ?');  params.push(data) }
+  if (tipo) { where.push('tipo = ?');  params.push(tipo) }
+  const wc = where.length ? 'WHERE ' + where.join(' AND ') : ''
+  return db.prepare(`SELECT * FROM eventos_db ${wc} ORDER BY data, hora`).all(...params).map(r => ({
+    id:      r.id,
+    titulo:  r.titulo,
+    data:    r.data,
+    hora:    r.hora    || '',
+    tipo:    r.tipo    || 'outro',
+    turmaId: r.turma_id ?? null,
+    desc:    r.desc    || '',
+  }))
+}
+
+function criarEvento(d, _req = {}) {
+  dbOk()
+  const info = db.prepare(`
+    INSERT INTO eventos_db (titulo, data, hora, tipo, turma_id, desc)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `).run(d.titulo?.trim(), d.data, d.hora || '', d.tipo || 'outro', d.turmaId ?? d.turma_id ?? null, d.desc || '')
+  registrarLog({ usuarioId: _req.userId, usuarioLogin: _req.userLogin || 'sistema', modulo: 'agenda', acao: 'criar', entidadeId: info.lastInsertRowid, entidadeNome: d.titulo, detalhe: `Evento criado: ${d.titulo}` })
+  return { ok: true, id: info.lastInsertRowid }
+}
+
+function editarEvento(id, d, _req = {}) {
+  dbOk()
+  const antes = db.prepare('SELECT titulo FROM eventos_db WHERE id = ?').get(id)
+  if (!antes) return { ok: false, erro: 'Evento não encontrado' }
+  db.prepare('UPDATE eventos_db SET titulo=?, data=?, hora=?, tipo=?, turma_id=?, desc=? WHERE id=?')
+    .run(d.titulo?.trim() || antes.titulo, d.data, d.hora || '', d.tipo || 'outro', d.turmaId ?? d.turma_id ?? null, d.desc || '', id)
+  registrarLog({ usuarioId: _req.userId, usuarioLogin: _req.userLogin || 'sistema', modulo: 'agenda', acao: 'editar', entidadeId: id, entidadeNome: d.titulo || antes.titulo, detalhe: `Evento editado: ${d.titulo || antes.titulo}` })
+  return { ok: true }
+}
+
+function deletarEvento(id, _req = {}) {
+  dbOk()
+  const e = db.prepare('SELECT titulo FROM eventos_db WHERE id = ?').get(id)
+  if (!e) return { ok: false, erro: 'Evento não encontrado' }
+  db.prepare('DELETE FROM eventos_db WHERE id = ?').run(id)
+  registrarLog({ usuarioId: _req.userId, usuarioLogin: _req.userLogin || 'sistema', modulo: 'agenda', acao: 'excluir', entidadeId: id, entidadeNome: e.titulo, detalhe: `Evento excluído: ${e.titulo}`, nivel: 'aviso' })
+  return { ok: true }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // FLUXO DE CAIXA (v5.8)
 // ═══════════════════════════════════════════════════════════════════════════════
 
@@ -2797,11 +3045,13 @@ function resumoCertificados() {
 function limparDadosMigrados(_req = {}) {
   dbOk()
   const stm = db.transaction(() => {
+    db.exec('DELETE FROM pagamentos_db')
+    db.exec('DELETE FROM eventos_db')
     db.exec('DELETE FROM alunos_db')
     db.exec('DELETE FROM turmas_db')
     db.exec('DELETE FROM professores_db')
     // Reinicia os autoincrement para evitar lacunas de IDs
-    db.exec("DELETE FROM sqlite_sequence WHERE name IN ('alunos_db','turmas_db','professores_db')")
+    db.exec("DELETE FROM sqlite_sequence WHERE name IN ('pagamentos_db','eventos_db','alunos_db','turmas_db','professores_db')")
   })
   stm()
   registrarLog({
@@ -3010,6 +3260,11 @@ module.exports = {
   listarTurmas, criarTurma, editarTurma, deletarTurma,
   // Alunos (v6)
   listarAlunos, getAluno, criarAluno, editarAluno, deletarAluno,
+  // Pagamentos (v6)
+  listarPagamentos, criarPagamento, editarPagamento, deletarPagamento,
+  registrarPagamentoDb, gerarMensalidadesDb, marcarAtrasadosDb,
+  // Eventos (v6)
+  listarEventos, criarEvento, editarEvento, deletarEvento,
   // Fluxo de caixa (v5.8)
   listarFluxo, resumoFluxoMensal, resumoFluxoCategoria,
   criarLancamento, editarLancamento, deletarLancamento,

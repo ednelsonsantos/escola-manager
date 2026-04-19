@@ -417,6 +417,21 @@ ipcMain.handle('cert:criar',   (_, dados, req) => safe(() => db.criarCertificado
 ipcMain.handle('cert:deletar', (_, id, req)    => safe(() => db.deletarCertificado(id, req || {}), { ok: false }))
 ipcMain.handle('cert:resumo',  ()              => safe(() => db.resumoCertificados(), {}))
 
+// ── Pagamentos (v6) ───────────────────────────────────────────────────────────
+ipcMain.handle('pag:listar',           (_, filtros)           => safe(() => db.listarPagamentos(filtros || {}), []))
+ipcMain.handle('pag:criar',            (_, dados, req)        => safe(() => db.criarPagamento(dados, req || {}), { ok: false }))
+ipcMain.handle('pag:editar',           (_, id, dados, req)    => safe(() => db.editarPagamento(id, dados, req || {}), { ok: false }))
+ipcMain.handle('pag:deletar',          (_, id, req)           => safe(() => db.deletarPagamento(id, req || {}), { ok: false }))
+ipcMain.handle('pag:registrar',        (_, id, data, fin, req)=> safe(() => db.registrarPagamentoDb(id, data, fin, req || {}), { ok: false }))
+ipcMain.handle('pag:gerarMensalidades',(_, mes, fin, req)     => safe(() => db.gerarMensalidadesDb(mes, fin, req || {}), { ok: false }))
+ipcMain.handle('pag:marcarAtrasados',  (_, mes, fin, req)     => safe(() => db.marcarAtrasadosDb(mes, fin, req || {}), { ok: false }))
+
+// ── Eventos (v6) ──────────────────────────────────────────────────────────────
+ipcMain.handle('evt:listar',  (_, filtros)        => safe(() => db.listarEventos(filtros || {}), []))
+ipcMain.handle('evt:criar',   (_, dados, req)     => safe(() => db.criarEvento(dados, req || {}), { ok: false }))
+ipcMain.handle('evt:editar',  (_, id, dados, req) => safe(() => db.editarEvento(id, dados, req || {}), { ok: false }))
+ipcMain.handle('evt:deletar', (_, id, req)        => safe(() => db.deletarEvento(id, req || {}), { ok: false }))
+
 // ── Migração v6 ───────────────────────────────────────────────────────────────
 ipcMain.handle('db:limparDadosMigrados', (_, req) => safe(() => db.limparDadosMigrados(req || {}), { ok: false }))
 

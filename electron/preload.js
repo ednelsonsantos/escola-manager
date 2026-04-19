@@ -132,6 +132,21 @@ contextBridge.exposeInMainWorld('electronAPI', {
   certDeletar: (id, req)    => ipcRenderer.invoke('cert:deletar', id, req),
   certResumo:  ()           => ipcRenderer.invoke('cert:resumo'),
 
+  // Pagamentos (v6)
+  pagListar:            (filtros)           => ipcRenderer.invoke('pag:listar',            filtros),
+  pagCriar:             (dados, req)        => ipcRenderer.invoke('pag:criar',             dados, req),
+  pagEditar:            (id, dados, req)    => ipcRenderer.invoke('pag:editar',            id, dados, req),
+  pagDeletar:           (id, req)           => ipcRenderer.invoke('pag:deletar',           id, req),
+  pagRegistrar:         (id, data, fin, req)=> ipcRenderer.invoke('pag:registrar',         id, data, fin, req),
+  pagGerarMensalidades: (mes, fin, req)     => ipcRenderer.invoke('pag:gerarMensalidades', mes, fin, req),
+  pagMarcarAtrasados:   (mes, fin, req)     => ipcRenderer.invoke('pag:marcarAtrasados',   mes, fin, req),
+
+  // Eventos (v6)
+  evtListar:  (filtros)        => ipcRenderer.invoke('evt:listar',  filtros),
+  evtCriar:   (dados, req)     => ipcRenderer.invoke('evt:criar',   dados, req),
+  evtEditar:  (id, dados, req) => ipcRenderer.invoke('evt:editar',  id, dados, req),
+  evtDeletar: (id, req)        => ipcRenderer.invoke('evt:deletar', id, req),
+
   // Migração v6
   limparDadosMigrados: (req) => ipcRenderer.invoke('db:limparDadosMigrados', req),
 

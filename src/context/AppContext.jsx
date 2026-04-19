@@ -243,8 +243,6 @@ export function AppProvider({ children, user = null, onLogout = null }) {
   }, [])
 
   // ── Carrega dados do SQLite quando migradoSQLite=true ──────────────────────
-  // Roda uma vez no mount e sempre que o flag mudar (ex: logo após a migração).
-  // Não toca em pagamentos nem eventos — esses ainda vivem no localStorage.
   useEffect(() => {
     const migrado = settings?.sistema?.migradoSQLite
     if (!migrado) return
@@ -253,13 +251,13 @@ export function AppProvider({ children, user = null, onLogout = null }) {
 
     async function carregarDoSQLite() {
       try {
-        const [profs, turms, aluns] = await Promise.all([
+        const [profs, turms, aluns, pags, evts] = await Promise.all([
           api.professoresListar({}),
           api.turmasListar({}),
           api.alunosListar({}),
+          api.pagListar({}),
+          api.evtListar({}),
         ])
-        // Normaliza campo professorId: turmas_db usa professor_id internamente,
-        // mas o JOIN já devolve professor_nome — o frontend usa professorId
         const turmasNorm = turms.map(t => ({
           ...t,
           professorId: t.professor_id ?? t.professorId ?? null,
@@ -267,6 +265,8 @@ export function AppProvider({ children, user = null, onLogout = null }) {
         setProfRaw(profs)
         setTurmasRaw(turmasNorm)
         setAlunosRaw(aluns)
+        setPagsRaw(pags)
+        setEventosRaw(evts)
       } catch (e) {
         console.error('[AppContext] Erro ao carregar SQLite:', e)
       }
@@ -399,28 +399,37 @@ export function AppProvider({ children, user = null, onLogout = null }) {
 
   // ── PAGAMENTOS ──
 
-  /**
-   * registrarPagamento — confirma recebimento.
-   * NOVO: se dataPgto < vencimento, aplica desconto de antecipação automaticamente.
-   */
-  const registrarPagamento = (id, dataPgto = null) => {
+  const registrarPagamento = async (id, dataPgto = null) => {
+    if (settings?.sistema?.migradoSQLite) {
+      const res = await window.electronAPI?.pagRegistrar(id, dataPgto, settings.financeiro, getReq())
+      if (!res?.ok) { showToast(res?.erro || 'Erro ao registrar pagamento.', 'error'); return }
+      const pags = await window.electronAPI?.pagListar({})
+      if (pags) setPagsRaw(pags)
+      const msg = res.valorDesconto > 0
+        ? `Pagamento registrado com desconto de ${formatBRL(res.valorDesconto)}! 🎉`
+        : (res.valorMulta + res.valorJuros) > 0
+          ? `Pagamento registrado com encargos de ${formatBRL(res.valorMulta + res.valorJuros)}.`
+          : 'Pagamento registrado!'
+      showToast(msg)
+      return
+    }
+    // ── localStorage ──
+    const registrarPagamentoLS = (id, dataPgto = null) => {
     const pgto = pagamentos.find(p => p.id === id)
     if (!pgto) return
 
     const dataEfetiva = dataPgto || today()
-    const desconto    = settings?.financeiro?.descontoAntecipacao ?? 5 // % padrão
+    const desconto    = settings?.financeiro?.descontoAntecipacao ?? 5
 
     let valorFinal       = pgto.valor
     let valorDesconto    = 0
-    let valorOriginalPgto = pgto.valorOriginal ?? pgto.valor // usa original se já tinha encargo
+    let valorOriginalPgto = pgto.valorOriginal ?? pgto.valor
 
-    // Caso 1 — antecipado: pagou antes do vencimento → aplica desconto
     if (dataEfetiva < pgto.vencimento && desconto > 0) {
       valorDesconto = Math.round(valorOriginalPgto * (desconto / 100) * 100) / 100
       valorFinal    = Math.round((valorOriginalPgto - valorDesconto) * 100) / 100
     }
 
-    // Caso 2 — atrasado: pagou depois do vencimento → recalcula encargos com data real
     let encargosFinais = { valorMulta: 0, valorJuros: 0 }
     if (dataEfetiva > pgto.vencimento) {
       const enc = calcularEncargos(valorOriginalPgto, pgto.vencimento, dataEfetiva)
@@ -437,7 +446,6 @@ export function AppProvider({ children, user = null, onLogout = null }) {
             valor:         valorFinal,
             valorOriginal: p.valorOriginal ?? p.valor,
             valorDesconto: valorDesconto > 0 ? valorDesconto : undefined,
-            // Grava encargos finais calculados com a data real do pagamento
             valorMulta:    encargosFinais.valorMulta  > 0 ? encargosFinais.valorMulta  : undefined,
             valorJuros:    encargosFinais.valorJuros  > 0 ? encargosFinais.valorJuros  : undefined,
             diasAtraso:    dataEfetiva > pgto.vencimento
@@ -456,40 +464,48 @@ export function AppProvider({ children, user = null, onLogout = null }) {
     registrarLog('financeiro','registrar_pagamento','','Pagamento confirmado: ID '+id)
   }
 
-  const updatePagamento = (id, dados) => {
+  const updatePagamento = async (id, dados) => {
+    if (settings?.sistema?.migradoSQLite) {
+      const res = await window.electronAPI?.pagEditar(id, dados, getReq())
+      if (!res?.ok) { showToast(res?.erro || 'Erro ao atualizar pagamento.', 'error'); return }
+      const pags = await window.electronAPI?.pagListar({})
+      if (pags) setPagsRaw(pags)
+      showToast('Pagamento atualizado!')
+      return
+    }
     setPagamentos(pagamentos.map(p => p.id === id ? { ...p, ...dados } : p))
     showToast('Pagamento atualizado!'); registrarLog('financeiro','editar_pagamento','','Pagamento editado: ID '+id)
   }
-  const deletePagamento = (id) => {
+
+  const deletePagamento = async (id) => {
+    if (settings?.sistema?.migradoSQLite) {
+      const res = await window.electronAPI?.pagDeletar(id, getReq())
+      if (!res?.ok) { showToast(res?.erro || 'Erro ao remover pagamento.', 'error'); return }
+      setPagsRaw(v => v.filter(p => p.id !== id))
+      showToast('Lançamento removido.', 'info')
+      return
+    }
     setPagamentos(pagamentos.filter(p => p.id !== id))
     showToast('Lançamento removido.', 'info'); registrarLog('financeiro','excluir_pagamento','','Lançamento removido: ID '+id,'aviso')
   }
-  const addPagamento = (data) => {
-    const list = [...pagamentos, { ...data, id: newId(pagamentos) }]
-    setPagamentos(list); showToast('Pagamento lançado!')
-  }
 
-  /**
-   * gerarMensalidades — ALTERADO: usa diaVencimento do próprio aluno.
-   * Cada aluno tem seu dia de vencimento individual (campo diaVencimento).
-   * Fallback para dia 10 se o campo não estiver definido.
-   */
-  const gerarMensalidades = (mes) => {
+  const gerarMensalidades = async (mes) => {
+    if (settings?.sistema?.migradoSQLite) {
+      const res = await window.electronAPI?.pagGerarMensalidades(mes, settings.financeiro, getReq())
+      if (!res?.ok) { showToast(res?.erro || 'Erro ao gerar mensalidades.', 'error'); return }
+      if (res.gerados === 0) { showToast('Mensalidades já geradas para este mês.', 'warning'); return }
+      const pags = await window.electronAPI?.pagListar({})
+      if (pags) setPagsRaw(pags)
+      showToast(`${res.gerados} mensalidades geradas!`)
+      return
+    }
     const ativos = alunos.filter(a => a.status === 'Ativo')
     const novos  = ativos
       .filter(a => !pagamentos.find(p => p.alunoId === a.id && p.mes === mes))
       .map(a => {
         const dia  = String(a.diaVencimento || 10).padStart(2, '0')
         const venc = `${mes}-${dia}`
-        return {
-          id: newId([...pagamentos, ...ativos]),
-          alunoId: a.id,
-          valor: a.mensalidade,
-          vencimento: venc,
-          status: 'Pendente',
-          dataPgto: null,
-          mes,
-        }
+        return { id: newId([...pagamentos, ...ativos]), alunoId: a.id, valor: a.mensalidade, vencimento: venc, status: 'Pendente', dataPgto: null, mes }
       })
     if (novos.length === 0) { showToast('Mensalidades já geradas para este mês.', 'warning'); return }
     setPagamentos([...pagamentos, ...novos])
@@ -497,10 +513,51 @@ export function AppProvider({ children, user = null, onLogout = null }) {
     registrarLog('financeiro','gerar_mensalidades','',`${novos.length} mensalidades geradas para ${mes}`)
   }
 
+  const addPagamento = async (data) => {
+    if (settings?.sistema?.migradoSQLite) {
+      const res = await window.electronAPI?.pagCriar(data, getReq())
+      if (!res?.ok) { showToast(res?.erro || 'Erro ao lançar pagamento.', 'error'); return }
+      const pags = await window.electronAPI?.pagListar({})
+      if (pags) setPagsRaw(pags)
+      showToast('Pagamento lançado!')
+      return
+    }
+    const list = [...pagamentos, { ...data, id: newId(pagamentos) }]
+    setPagamentos(list); showToast('Pagamento lançado!')
+  }
+
   // ── EVENTOS CRUD ──
-  const addEvento    = d => { setEventos([...eventos,{...d,id:newId(eventos)}]); showToast('Evento criado!') }
-  const updateEvento = (id,d) => { setEventos(eventos.map(e=>e.id===id?{...e,...d}:e)); showToast('Evento atualizado!') }
-  const deleteEvento = id => { setEventos(eventos.filter(e=>e.id!==id)); showToast('Evento removido.','info') }
+  const addEvento = async (d) => {
+    if (settings?.sistema?.migradoSQLite) {
+      const res = await window.electronAPI?.evtCriar(d, getReq())
+      if (!res?.ok) { showToast(res?.erro || 'Erro ao criar evento.', 'error'); return }
+      const evts = await window.electronAPI?.evtListar({})
+      if (evts) setEventosRaw(evts)
+      showToast('Evento criado!')
+      return
+    }
+    setEventos([...eventos, { ...d, id: newId(eventos) }]); showToast('Evento criado!')
+  }
+  const updateEvento = async (id, d) => {
+    if (settings?.sistema?.migradoSQLite) {
+      const res = await window.electronAPI?.evtEditar(id, d, getReq())
+      if (!res?.ok) { showToast(res?.erro || 'Erro ao atualizar evento.', 'error'); return }
+      const evts = await window.electronAPI?.evtListar({})
+      if (evts) setEventosRaw(evts)
+      showToast('Evento atualizado!')
+      return
+    }
+    setEventos(eventos.map(e => e.id === id ? { ...e, ...d } : e)); showToast('Evento atualizado!')
+  }
+  const deleteEvento = async (id) => {
+    if (settings?.sistema?.migradoSQLite) {
+      const res = await window.electronAPI?.evtDeletar(id, getReq())
+      if (!res?.ok) { showToast(res?.erro || 'Erro ao remover evento.', 'error'); return }
+      setEventosRaw(v => v.filter(e => e.id !== id)); showToast('Evento removido.', 'info')
+      return
+    }
+    setEventos(eventos.filter(e => e.id !== id)); showToast('Evento removido.', 'info')
+  }
 
   // ── ENCARGOS ─────────────────────────────────────────────────────────────────
   /**
@@ -540,27 +597,25 @@ export function AppProvider({ children, user = null, onLogout = null }) {
     return { valorTotal, valorMulta, valorJuros, dias }
   }
 
-  /**
-   * marcarAtrasados — aplica multa fixa nos pendentes vencidos do mês.
-   * Preserva valorOriginal para não acumular multa em cliques repetidos.
-   */
-  const marcarAtrasados = (mes) => {
+  const marcarAtrasados = async (mes) => {
+    if (settings?.sistema?.migradoSQLite) {
+      const res = await window.electronAPI?.pagMarcarAtrasados(mes, settings.financeiro, getReq())
+      if (!res?.ok) { showToast(res?.erro || 'Erro ao marcar atrasados.', 'error'); return }
+      const pags = await window.electronAPI?.pagListar({})
+      if (pags) setPagsRaw(pags)
+      res.marcados > 0
+        ? showToast(`${res.marcados} pagamento(s) marcado(s) como atrasado.`, 'warning')
+        : showToast('Nenhum pendente vencido.', 'info')
+      return
+    }
     const hoje = today()
     let count = 0
     const updated = pagamentos.map(p => {
       if (p.mes === mes && p.status === 'Pendente' && p.vencimento < hoje) {
         count++
-        const valorBase = p.valorOriginal ?? p.valor // nunca recalcula sobre valor já corrigido
+        const valorBase = p.valorOriginal ?? p.valor
         const enc = calcularEncargos(valorBase, p.vencimento)
-        return {
-          ...p,
-          status:        'Atrasado',
-          valorOriginal: valorBase,
-          valor:         enc.valorTotal,
-          valorMulta:    enc.valorMulta,
-          valorJuros:    enc.valorJuros,
-          diasAtraso:    enc.dias,
-        }
+        return { ...p, status: 'Atrasado', valorOriginal: valorBase, valor: enc.valorTotal, valorMulta: enc.valorMulta, valorJuros: enc.valorJuros, diasAtraso: enc.dias }
       }
       return p
     })

@@ -188,11 +188,70 @@ export default function Configuracoes() {
       }
       addLog(`  Alunos: ${alunoOk} criados, ${alunoSkip} já existiam`, 'ok')
 
-      // ── 5. Resultado ──────────────────────────────────────────────────────
+      // ── 5. Migrar pagamentos ──────────────────────────────────────────────
+      addLog('Migrando pagamentos...')
+      const pagamentosLS = JSON.parse(localStorage.getItem('em_pags') || '[]')
+      addLog(`  Encontrados: ${pagamentosLS.length} lançamentos`)
+      // Monta mapa ls_id → SQLite id para alunos migrados
+      const alunosMigrados  = await api.alunosListar({})
+      const mapAluno = {}
+      alunosMigrados.forEach(a => { if (a.lsId != null) mapAluno[a.lsId] = a.id })
+      // Pagamentos já migrados (por aluno_id + mes) para idempotência
+      const pagsExistentes  = await api.pagListar({})
+      const pagChaveExistente = new Set(pagsExistentes.map(p => `${p.alunoId}-${p.mes}`))
+      let pagOk = 0, pagSkip = 0, pagErro = 0
+      for (const p of pagamentosLS) {
+        const alunoSqliteId = mapAluno[p.alunoId]
+        if (!alunoSqliteId) { pagErro++; continue } // aluno não migrado — pula
+        const chave = `${alunoSqliteId}-${p.mes}`
+        if (pagChaveExistente.has(chave)) { pagSkip++; continue }
+        const res = await api.pagCriar({
+          alunoId:       alunoSqliteId,
+          valor:         p.valor         ?? 0,
+          valorOriginal: p.valorOriginal ?? p.valor ?? 0,
+          valorMulta:    p.valorMulta    ?? 0,
+          valorJuros:    p.valorJuros    ?? 0,
+          valorDesconto: p.valorDesconto ?? 0,
+          diasAtraso:    p.diasAtraso    ?? 0,
+          mes:           p.mes,
+          vencimento:    p.vencimento,
+          status:        p.status        || 'Pendente',
+          dataPgto:      p.dataPgto      || null,
+          obs:           p.obs           || '',
+        }, req)
+        if (res.ok) { pagOk++; pagChaveExistente.add(chave) }
+        else pagErro++
+      }
+      addLog(`  Pagamentos: ${pagOk} criados, ${pagSkip} já existiam, ${pagErro} ignorados (aluno não migrado)`, 'ok')
+
+      // ── 6. Migrar eventos ─────────────────────────────────────────────────
+      addLog('Migrando eventos...')
+      const eventosLS = JSON.parse(localStorage.getItem('em_eventos') || '[]')
+      const evtsExistentes = await api.evtListar({})
+      const evtChaves = new Set(evtsExistentes.map(e => `${e.titulo}-${e.data}`))
+      let evtOk = 0, evtSkip = 0
+      for (const e of eventosLS) {
+        const chave = `${e.titulo}-${e.data}`
+        if (evtChaves.has(chave)) { evtSkip++; continue }
+        const res = await api.evtCriar({
+          titulo:  e.titulo,
+          data:    e.data,
+          hora:    e.hora    || '',
+          tipo:    e.tipo    || 'outro',
+          turmaId: e.turmaId ? (mapTurma[e.turmaId] || null) : null,
+          desc:    e.desc    || '',
+        }, req)
+        if (res.ok) { evtOk++; evtChaves.add(chave) }
+      }
+      addLog(`  Eventos: ${evtOk} criados, ${evtSkip} já existiam`, 'ok')
+
+      // ── 7. Resultado ──────────────────────────────────────────────────────
       const stats = {
         professores: profOk + profSkip,
         turmas:      turmaOk + turmaSkip,
         alunos:      alunoOk + alunoSkip,
+        pagamentos:  pagOk  + pagSkip,
+        eventos:     evtOk  + evtSkip,
       }
       addLog('Migração concluída com sucesso! ✓', 'ok')
       setMigracaoFim({ ok: true, stats })
@@ -893,6 +952,8 @@ export default function Configuracoes() {
                         <span>{migracaoFim.stats.professores} professores</span>
                         <span>{migracaoFim.stats.turmas} turmas</span>
                         <span>{migracaoFim.stats.alunos} alunos</span>
+                        <span>{migracaoFim.stats.pagamentos} pagamentos</span>
+                        <span>{migracaoFim.stats.eventos} eventos</span>
                       </div>
                     )}
                   </div>
