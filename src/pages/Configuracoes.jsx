@@ -90,13 +90,12 @@ export default function Configuracoes() {
 
       // ── 2. Migrar professores ─────────────────────────────────────────────
       addLog('Migrando professores...')
-      // Mapeia lsId → novo id SQLite
       const mapProf = {}
       let profOk = 0, profSkip = 0
+      // Carrega lista uma única vez antes do loop (evita N+1 queries)
+      let profsExistentes = await api.professoresListar({})
       for (const p of professoresLS) {
-        // Verifica se já foi migrado (listarProfessores retorna por nome+idioma)
-        const todos = await api.professoresListar({})
-        const jaExiste = todos.find(x =>
+        const jaExiste = profsExistentes.find(x =>
           x.nome === p.nome && x.idioma === (p.idioma || '')
         )
         if (jaExiste) {
@@ -111,8 +110,13 @@ export default function Configuracoes() {
           telefone: p.telefone  || '',
           ativo:    p.ativo !== false ? 1 : 0,
         }, req)
-        if (res.ok) { mapProf[p.id] = res.id; profOk++ }
-        else addLog(`  ⚠ Professor "${p.nome}": ${res.erro}`, 'warn')
+        if (res.ok) {
+          mapProf[p.id] = res.id
+          profOk++
+          profsExistentes = [...profsExistentes, { id: res.id, nome: p.nome, idioma: p.idioma || '' }]
+        } else {
+          addLog(`  ⚠ Professor "${p.nome}": ${res.erro}`, 'warn')
+        }
       }
       addLog(`  Professores: ${profOk} criados, ${profSkip} já existiam`, 'ok')
 
@@ -120,16 +124,18 @@ export default function Configuracoes() {
       addLog('Migrando turmas...')
       const mapTurma = {}
       let turmaOk = 0, turmaSkip = 0
+      // Carrega lista uma única vez antes do loop
+      let turmasExistentes = await api.turmasListar({})
       for (const t of turmasLS) {
-        const todas = await api.turmasListar({})
-        const jaExiste = todas.find(x => x.codigo === (t.codigo || '').toUpperCase())
+        const codigo = (t.codigo || '').toUpperCase()
+        const jaExiste = turmasExistentes.find(x => x.codigo === codigo)
         if (jaExiste) {
           mapTurma[t.id] = jaExiste.id
           turmaSkip++
           continue
         }
         const res = await api.turmasCriar({
-          codigo:      (t.codigo || '').toUpperCase(),
+          codigo,
           idioma:      t.idioma      || '',
           nivel:       t.nivel       || 'Básico',
           professorId: mapProf[t.professorId] || null,
@@ -137,39 +143,45 @@ export default function Configuracoes() {
           vagas:       t.vagas       ?? 15,
           ativa:       t.ativa !== false ? 1 : 0,
         }, req)
-        if (res.ok) { mapTurma[t.id] = res.id; turmaOk++ }
-        else addLog(`  ⚠ Turma "${t.codigo}": ${res.erro}`, 'warn')
+        if (res.ok) {
+          mapTurma[t.id] = res.id
+          turmaOk++
+          turmasExistentes = [...turmasExistentes, { id: res.id, codigo }]
+        } else {
+          addLog(`  ⚠ Turma "${t.codigo}": ${res.erro}`, 'warn')
+        }
       }
       addLog(`  Turmas: ${turmaOk} criadas, ${turmaSkip} já existiam`, 'ok')
 
       // ── 4. Migrar alunos ──────────────────────────────────────────────────
       addLog('Migrando alunos...')
       let alunoOk = 0, alunoSkip = 0
+      // Carrega lista uma única vez antes do loop
+      const alunosExistentes = await api.alunosListar({})
+      const lsIdsExistentes  = new Set(alunosExistentes.map(x => x.lsId))
       for (const a of alunosLS) {
-        // ls_id é a chave idempotente — se já existe, pula
-        const todos = await api.alunosListar({})
-        const jaExiste = todos.find(x => x.lsId === a.id)
-        if (jaExiste) { alunoSkip++; continue }
+        if (lsIdsExistentes.has(a.id)) { alunoSkip++; continue }
 
         const res = await api.alunosCriar({
-          lsId:            a.id,
-          nome:            a.nome,
-          email:           a.email           || '',
-          telefone:        a.telefone        || '',
-          turmaId:         mapTurma[a.turmaId] || null,
-          mensalidade:     a.mensalidade     ?? 0,
-          diaVencimento:   a.diaVencimento   ?? 10,
-          status:          a.status          || 'Ativo',
-          dataNasc:        a.dataNasc        || '',
-          dataMatricula:   a.dataMatricula   || '',
-          obs:             a.obs             || '',
-          respNome:        a.respNome        || '',
-          respTelefone:    a.respTelefone    || '',
-          respEmail:       a.respEmail       || '',
-          respParentesco:  a.respParentesco  || '',
-          turmaAnteriorId: a.turmaAnteriorId ? (mapTurma[a.turmaAnteriorId] || null) : null,
-          dataRematricula: a.dataRematricula || '',
-          dataReativacao:  a.dataReativacao  || '',
+          lsId:                  a.id,
+          nome:                  a.nome,
+          email:                 a.email           || '',
+          telefone:              a.telefone        || '',
+          turmaId:               mapTurma[a.turmaId] || null,
+          mensalidade:           a.mensalidade     ?? 0,
+          diaVencimento:         a.diaVencimento   ?? 10,
+          status:                a.status          || 'Ativo',
+          dataNasc:              a.dataNasc        || '',
+          dataMatricula:         a.dataMatricula   || '',
+          obs:                   a.obs             || '',
+          respNome:              a.respNome        || '',
+          respTelefone:          a.respTelefone    || '',
+          respEmail:             a.respEmail       || '',
+          respParentesco:        a.respParentesco  || '',
+          turmaAnteriorId:       a.turmaAnteriorId ? (mapTurma[a.turmaAnteriorId] || null) : null,
+          dataRematricula:       a.dataRematricula || '',
+          dataReativacao:        a.dataReativacao  || '',
+          _permitirMensalidadeZero: true,  // permite mensalidade=0 durante migração
         }, req)
         if (res.ok) alunoOk++
         else addLog(`  ⚠ Aluno "${a.nome}": ${res.erro}`, 'warn')

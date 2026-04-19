@@ -4,7 +4,7 @@ import {
   LayoutDashboard, Users, DollarSign, BookOpen, Settings,
   Bell, Sun, Moon, ChevronRight,
   BarChart2, Calendar, Search, X, CheckCircle, AlertCircle, Info,
-  AlertTriangle, Clock, TrendingUp, LogOut, UserCog, Shield, ClipboardList, MessageSquare, LayoutGrid, DoorOpen, Package, Award
+  AlertTriangle, Clock, TrendingUp, LogOut, UserCog, Shield, ClipboardList, MessageSquare, LayoutGrid, DoorOpen, Package, Award, LibrarySquare
 } from 'lucide-react'
 import { useApp, formatBRL, mesAtualDinamico } from './context/AppContext.jsx'
 import { useAuth }  from './context/AuthContext.jsx'
@@ -35,6 +35,7 @@ import ReservaSalas  from './pages/ReservaSalas.jsx'
 import Notas         from './pages/Notas.jsx'
 import Estoque       from './pages/Estoque.jsx'
 import Certificados  from './pages/Certificados.jsx'
+import Biblioteca   from './pages/Biblioteca.jsx'
 import TitleBar     from './components/TitleBar.jsx'
 
 const NAV_ITEMS = [
@@ -51,6 +52,7 @@ const NAV_ITEMS = [
   { label:'Certificados',  icon:Award,           path:'/cursos/certificados',   perm:'cursos'     },
   { label:'Reserva de Salas', icon:DoorOpen,    path:'/agenda/salas',          perm:'agenda'     },
   { label:'Estoque',          icon:Package,     path:'/estoque',               perm:'config'     },
+  { label:'Biblioteca', icon:LibrarySquare,   path:'/biblioteca',   perm:'biblioteca' },
   { label:'Recados',    icon:MessageSquare,   path:'/recados',      perm:'dashboard'  },
   { label:'Relatórios', icon:BarChart2,       path:'/relatorios',   perm:'relatorios' },
   { label:'Agenda',     icon:Calendar,        path:'/agenda',       perm:'agenda'     },
@@ -71,7 +73,8 @@ const PAGE_META = {
   '/relatorios':   { title:'Relatórios',   sub:'Análise de dados' },
   '/agenda':       { title:'Agenda',       sub:'Eventos e calendário' },
   '/agenda/salas': { title:'Reserva de Salas', sub:'Agenda e gestão de espaços' },
-  '/estoque':      { title:'Estoque',          sub:'Material didático e recursos' },
+  '/estoque':      { title:'Estoque',           sub:'Material didático e recursos' },
+  '/biblioteca':   { title:'Biblioteca',        sub:'Acervo, empréstimos e carteirinha' },
   '/configuracoes':{ title:'Configurações',sub:'Preferências do sistema' },
   '/usuarios':     { title:'Usuários',     sub:'Contas e permissões' },
   '/sobre':        { title:'Sobre',        sub:'Informações do sistema e licença' },
@@ -190,6 +193,7 @@ const AppRoutes = React.memo(function AppRoutes() {
         <Route path="/auditlog"                       element={<Guarded perm="usuarios"><AuditLog/></Guarded>}/>
         <Route path="/estoque"                        element={<Guarded perm="config"><Estoque/></Guarded>}/>
         <Route path="/cursos/certificados"            element={<Guarded perm="cursos"><Certificados/></Guarded>}/>
+        <Route path="/biblioteca"                     element={<Guarded perm="biblioteca"><Biblioteca/></Guarded>}/>
       </Routes>
     </div>
   )

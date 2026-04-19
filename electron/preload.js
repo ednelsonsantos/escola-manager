@@ -132,6 +132,21 @@ contextBridge.exposeInMainWorld('electronAPI', {
   certDeletar: (id, req)    => ipcRenderer.invoke('cert:deletar', id, req),
   certResumo:  ()           => ipcRenderer.invoke('cert:resumo'),
 
+  // Migração v6
+  limparDadosMigrados: (req) => ipcRenderer.invoke('db:limparDadosMigrados', req),
+
+  // Biblioteca (v5.15)
+  bibLivrosListar:  (filtros)        => ipcRenderer.invoke('bib:livros:listar',  filtros),
+  bibLivrosGet:     (id)             => ipcRenderer.invoke('bib:livros:get',     id),
+  bibLivrosCriar:   (dados, req)     => ipcRenderer.invoke('bib:livros:criar',   dados, req),
+  bibLivrosEditar:  (id, dados, req) => ipcRenderer.invoke('bib:livros:editar',  id, dados, req),
+  bibLivrosDeletar: (id, req)        => ipcRenderer.invoke('bib:livros:deletar', id, req),
+  bibEmpListar:     (filtros)        => ipcRenderer.invoke('bib:emp:listar',     filtros),
+  bibEmpCriar:      (dados, req)     => ipcRenderer.invoke('bib:emp:criar',      dados, req),
+  bibEmpDevolver:   (id, req)        => ipcRenderer.invoke('bib:emp:devolver',   id, req),
+  bibEmpDeletar:    (id, req)        => ipcRenderer.invoke('bib:emp:deletar',    id, req),
+  bibResumo:        ()               => ipcRenderer.invoke('bib:resumo'),
+
   // WhatsApp — abre wa.me no navegador padrão com mensagem pré-preenchida
   whatsappAbrir: (numero, mensagem) => ipcRenderer.invoke('whatsapp:abrir', numero, mensagem),
 

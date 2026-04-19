@@ -417,6 +417,21 @@ ipcMain.handle('cert:criar',   (_, dados, req) => safe(() => db.criarCertificado
 ipcMain.handle('cert:deletar', (_, id, req)    => safe(() => db.deletarCertificado(id, req || {}), { ok: false }))
 ipcMain.handle('cert:resumo',  ()              => safe(() => db.resumoCertificados(), {}))
 
+// ── Migração v6 ───────────────────────────────────────────────────────────────
+ipcMain.handle('db:limparDadosMigrados', (_, req) => safe(() => db.limparDadosMigrados(req || {}), { ok: false }))
+
+// ── Biblioteca (v5.15) ────────────────────────────────────────────────────────
+ipcMain.handle('bib:livros:listar',   (_, filtros)        => safe(() => db.listarBibliotecaLivros(filtros || {}), []))
+ipcMain.handle('bib:livros:get',      (_, id)             => safe(() => db.getBibliotecaLivro(id), null))
+ipcMain.handle('bib:livros:criar',    (_, dados, req)     => safe(() => db.criarBibliotecaLivro(dados, req || {}), { ok: false }))
+ipcMain.handle('bib:livros:editar',   (_, id, dados, req) => safe(() => db.editarBibliotecaLivro(id, dados, req || {}), { ok: false }))
+ipcMain.handle('bib:livros:deletar',  (_, id, req)        => safe(() => db.deletarBibliotecaLivro(id, req || {}), { ok: false }))
+ipcMain.handle('bib:emp:listar',      (_, filtros)        => safe(() => db.listarBibliotecaEmprestimos(filtros || {}), []))
+ipcMain.handle('bib:emp:criar',       (_, dados, req)     => safe(() => db.criarBibliotecaEmprestimo(dados, req || {}), { ok: false }))
+ipcMain.handle('bib:emp:devolver',    (_, id, req)        => safe(() => db.devolverBibliotecaEmprestimo(id, req || {}), { ok: false }))
+ipcMain.handle('bib:emp:deletar',     (_, id, req)        => safe(() => db.deletarBibliotecaEmprestimo(id, req || {}), { ok: false }))
+ipcMain.handle('bib:resumo',          ()                  => safe(() => db.resumoBiblioteca(), {}))
+
 // ── WhatsApp ──────────────────────────────────────────────────────────────────
 ipcMain.handle('whatsapp:abrir', (_, numero, mensagem) => {
   try {

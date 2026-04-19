@@ -1,4 +1,4 @@
-# 🎓 Escola Manager v5.14
+# 🎓 Escola Manager v5.15
 
 Sistema desktop completo para gestão de escolas de idiomas.
 **React 18 + Electron 29 + SQLite + PizZip · GPL-3.0 · Criado por Ednelson Santos**
@@ -11,6 +11,18 @@ Sistema desktop completo para gestão de escolas de idiomas.
 ---
 
 ## 🚀 Instalação
+
+### Para usuários (Windows)
+
+1. Acesse a página de [Releases no GitHub](https://github.com/ednelsonsantos/escola-manager/releases/latest)
+2. Baixe o arquivo `Escola Manager Setup x.x.x.exe` (coluna **Assets**)
+3. Execute o instalador — clique em **Executar assim mesmo** se o Windows Defender SmartScreen alertar (o app não tem assinatura de código pago; é seguro)
+4. O aplicativo será instalado e um atalho criado na área de trabalho
+5. Na primeira execução, faça login com as credenciais padrão (veja tabela abaixo)
+
+> **Requisito:** Windows 10/11 64-bit
+
+### Para desenvolvedores
 
 ```bash
 npm install       # instala e recompila módulos nativos
@@ -66,6 +78,7 @@ npm run build     # gera instalador .exe para Windows
 | **Fluxo de Caixa** | Lançamentos manuais de entradas/saídas, gráfico mensal de barras, resumo por categoria |
 | **Grade de Horários** | Grade visual semanal das turmas por dia da semana, cores por idioma |
 | **Carga Horária** | Horas ministradas por professor com detalhamento por turma e exportação CSV |
+| **Biblioteca** | Acervo de livros com CRUD, controle de exemplares disponíveis, empréstimos com data prevista e detecção automática de atraso, devolução com um clique, carteirinha de leitor em PDF (tamanho cartão) |
 | **Notas** | Lançamento de notas por turma/período, cálculo automático de média e conceito, ata em PDF; **Visão Geral** com todas as turmas em abas, filtros por professor e período |
 | **Reserva de Salas** | Gestão de espaços, reservas com detecção de conflito, calendário semanal |
 | **Inadimplentes** | Lista filtrada de alunos com atraso, envio de cobrança via Recados e WhatsApp em lote |
@@ -253,6 +266,8 @@ escola-v5/
 | `estoque_itens` | Itens do estoque com categoria, unidade, quantidade, mínimo e preços (v5.11) |
 | `estoque_movimentos` | Histórico de entradas, saídas e ajustes de inventário (v5.11) |
 | `certificados` | Certificados emitidos por aluno e turma, com campos de template e assinaturas (v5.12) |
+| `biblioteca_livros` | Acervo de livros — título, autor, ISBN, editora, ano, categoria, localização, total/disponíveis (v5.15) |
+| `biblioteca_emprestimos` | Empréstimos — livro, tomador (aluno/professor/outro), datas de empréstimo/prevista/devolução, status (ativo/devolvido/atrasado) (v5.15) |
 
 > **Nota v6:** As tabelas `professores_db`, `turmas_db`, `alunos_db`, `pagamentos_db` e `eventos_db` têm schema completo e migration automática aplicada, mas ainda são alimentadas pelo localStorage. A migração de dados está planejada — veja o Roadmap.
 
@@ -343,7 +358,7 @@ O scheduler de recados agendados roda a cada 60s via `setInterval` no `main.js`.
 
 ### 🔄 Segunda onda — em andamento
 
-- [ ] Biblioteca — acervo, empréstimos e carteirinha
+- [x] **v5.15** — Biblioteca: acervo com CRUD de livros (título, autor, ISBN, categoria, exemplares, localização), controle de disponibilidade, empréstimos com data prevista e detecção automática de atraso, devolução com um clique, carteirinha de leitor em PDF (tamanho cartão 86×54 mm) com logo da escola e validade
 
 ### 🔬 Terceira onda — futuro
 
@@ -373,4 +388,4 @@ O schema está completo e as migrations automáticas já rodam no startup. A mig
 ## 📜 Licença
 
 **Criado por:** Ednelson Santos · [github.com/ednelsonsantos](https://github.com/ednelsonsantos)
-**Licença:** GPL-3.0-or-later · **Copyright:** © 2025 Ednelson Santos
+**Licença:** GPL-3.0-or-later · **Copyright:** © 2026 Ednelson Santos

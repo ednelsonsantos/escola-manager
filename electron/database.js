@@ -480,6 +480,49 @@ function criarTabelas() {
 
     CREATE INDEX IF NOT EXISTS idx_cert_aluno ON certificados(aluno_ls_id);
     CREATE INDEX IF NOT EXISTS idx_cert_turma ON certificados(turma_ls_id);
+
+    -- ── BIBLIOTECA (v5.15) ────────────────────────────────────────────────────
+
+    CREATE TABLE IF NOT EXISTS biblioteca_livros (
+      id                INTEGER PRIMARY KEY AUTOINCREMENT,
+      titulo            TEXT    NOT NULL,
+      autor             TEXT    DEFAULT '',
+      isbn              TEXT    DEFAULT '',
+      editora           TEXT    DEFAULT '',
+      ano               INTEGER,
+      categoria         TEXT    DEFAULT '',
+      descricao         TEXT    DEFAULT '',
+      localizacao       TEXT    DEFAULT '',
+      total_exemplares  INTEGER DEFAULT 1,
+      disponiveis       INTEGER DEFAULT 1,
+      ativo             INTEGER DEFAULT 1,
+      criado_por        TEXT    DEFAULT 'sistema',
+      criado_em         TEXT    DEFAULT (datetime('now','localtime')),
+      atualizado_em     TEXT    DEFAULT (datetime('now','localtime'))
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_bib_livros_titulo ON biblioteca_livros(titulo);
+    CREATE INDEX IF NOT EXISTS idx_bib_livros_autor  ON biblioteca_livros(autor);
+
+    CREATE TABLE IF NOT EXISTS biblioteca_emprestimos (
+      id                INTEGER PRIMARY KEY AUTOINCREMENT,
+      livro_id          INTEGER NOT NULL REFERENCES biblioteca_livros(id) ON DELETE CASCADE,
+      livro_titulo      TEXT    DEFAULT '',
+      tomador_tipo      TEXT    DEFAULT 'aluno' CHECK(tomador_tipo IN ('aluno','professor','outro')),
+      tomador_id        INTEGER,
+      tomador_nome      TEXT    NOT NULL,
+      tomador_turma     TEXT    DEFAULT '',
+      data_emprestimo   TEXT    DEFAULT (date('now','localtime')),
+      data_prevista     TEXT    NOT NULL,
+      data_devolucao    TEXT,
+      status            TEXT    DEFAULT 'ativo' CHECK(status IN ('ativo','devolvido','atrasado')),
+      observacoes       TEXT    DEFAULT '',
+      criado_por        TEXT    DEFAULT 'sistema',
+      criado_em         TEXT    DEFAULT (datetime('now','localtime'))
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_bib_emp_livro  ON biblioteca_emprestimos(livro_id);
+    CREATE INDEX IF NOT EXISTS idx_bib_emp_status ON biblioteca_emprestimos(status);
   `)
 
   // Trigger para atualizar atualizado_em nos recados
@@ -646,6 +689,19 @@ function migrarSchema() {
 
   } catch (e) {
     console.warn('[DB] migrarSchema v6:', e.message)
+  }
+
+  // ── Migração v5.15: perm_biblioteca em perfis ────────────────────────────────
+  try {
+    const colsPerfis = db.prepare('PRAGMA table_info(perfis)').all().map(c => c.name)
+    if (!colsPerfis.includes('perm_biblioteca')) {
+      db.exec("ALTER TABLE perfis ADD COLUMN perm_biblioteca INTEGER DEFAULT 1")
+      db.exec("UPDATE perfis SET perm_biblioteca = 2 WHERE nome = 'Administrador'")
+      db.exec("UPDATE perfis SET perm_biblioteca = 1 WHERE nome != 'Administrador'")
+      console.log('[DB] Migração v5.15: coluna perm_biblioteca adicionada em perfis')
+    }
+  } catch (e) {
+    console.warn('[DB] migrarSchema v5.15 (perm_biblioteca):', e.message)
   }
 
   // ── Corrige perfil Administrador com permissões de nível 1 → 2 (v5.13) ──────
@@ -2734,6 +2790,203 @@ function resumoCertificados() {
   return { total, turmas, ultimaEmissao: recente?.data_emissao || null, porTurma }
 }
 
+// ── Limpar dados migrados (v6) ────────────────────────────────────────────────
+// Remove todos os registros das tabelas core da v6 para que limparTudo(),
+// restaurarBackup() e resetData() funcionem corretamente após a migração.
+// A ordem importa: FK de alunos_db → turmas_db → professores_db.
+function limparDadosMigrados(_req = {}) {
+  dbOk()
+  const stm = db.transaction(() => {
+    db.exec('DELETE FROM alunos_db')
+    db.exec('DELETE FROM turmas_db')
+    db.exec('DELETE FROM professores_db')
+    // Reinicia os autoincrement para evitar lacunas de IDs
+    db.exec("DELETE FROM sqlite_sequence WHERE name IN ('alunos_db','turmas_db','professores_db')")
+  })
+  stm()
+  registrarLog({
+    usuarioId:    _req.userId,
+    usuarioLogin: _req.userLogin || 'sistema',
+    modulo: 'sistema',
+    acao: 'limpar_dados_migrados',
+    entidadeNome: '',
+    detalhe: 'Tabelas SQLite core (alunos, turmas, professores) limpas — dados serão recarregados do localStorage',
+    nivel: 'aviso',
+  })
+  return { ok: true }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// BIBLIOTECA (v5.15)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function listarBibliotecaLivros(filtros = {}) {
+  dbOk()
+  let sql = 'SELECT * FROM biblioteca_livros WHERE 1=1'
+  const params = []
+  if (filtros.busca) {
+    sql += ' AND (titulo LIKE ? OR autor LIKE ? OR isbn LIKE ?)'
+    const b = `%${filtros.busca}%`
+    params.push(b, b, b)
+  }
+  if (filtros.categoria) { sql += ' AND categoria = ?'; params.push(filtros.categoria) }
+  if (filtros.ativo !== undefined) { sql += ' AND ativo = ?'; params.push(filtros.ativo ? 1 : 0) }
+  sql += ' ORDER BY titulo COLLATE NOCASE'
+  return db.prepare(sql).all(...params)
+}
+
+function getBibliotecaLivro(id) {
+  dbOk()
+  return db.prepare('SELECT * FROM biblioteca_livros WHERE id = ?').get(id)
+}
+
+function criarBibliotecaLivro(d, _req = {}) {
+  dbOk()
+  const total = Number(d.total_exemplares ?? d.totalExemplares ?? 1)
+  const info = db.prepare(`
+    INSERT INTO biblioteca_livros
+      (titulo, autor, isbn, editora, ano, categoria, descricao, localizacao, total_exemplares, disponiveis, ativo, criado_por)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)
+  `).run(
+    d.titulo.trim(),
+    d.autor   || '',
+    d.isbn    || '',
+    d.editora || '',
+    d.ano     || null,
+    d.categoria  || '',
+    d.descricao  || '',
+    d.localizacao || '',
+    total,
+    total,
+    _req.userLogin || 'sistema',
+  )
+  registrarLog({ usuarioId: _req.userId, usuarioLogin: _req.userLogin || 'sistema', modulo: 'biblioteca', acao: 'criar', entidadeId: info.lastInsertRowid, entidadeNome: d.titulo, detalhe: `Livro adicionado ao acervo: ${d.titulo}` })
+  return { ok: true, id: info.lastInsertRowid }
+}
+
+function editarBibliotecaLivro(id, d, _req = {}) {
+  dbOk()
+  const atual = db.prepare('SELECT * FROM biblioteca_livros WHERE id = ?').get(id)
+  if (!atual) return { ok: false, erro: 'Livro não encontrado' }
+  const total = Number(d.total_exemplares ?? d.totalExemplares ?? atual.total_exemplares)
+  const emprestados = atual.total_exemplares - atual.disponiveis
+  const disponiveis = Math.max(0, total - emprestados)
+  db.prepare(`
+    UPDATE biblioteca_livros
+    SET titulo=?, autor=?, isbn=?, editora=?, ano=?, categoria=?, descricao=?, localizacao=?,
+        total_exemplares=?, disponiveis=?, ativo=?, atualizado_em=datetime('now','localtime')
+    WHERE id=?
+  `).run(
+    d.titulo?.trim() || atual.titulo,
+    d.autor    ?? atual.autor,
+    d.isbn     ?? atual.isbn,
+    d.editora  ?? atual.editora,
+    d.ano      ?? atual.ano,
+    d.categoria  ?? atual.categoria,
+    d.descricao  ?? atual.descricao,
+    d.localizacao ?? atual.localizacao,
+    total,
+    disponiveis,
+    d.ativo !== undefined ? (d.ativo ? 1 : 0) : atual.ativo,
+    id,
+  )
+  registrarLog({ usuarioId: _req.userId, usuarioLogin: _req.userLogin || 'sistema', modulo: 'biblioteca', acao: 'editar', entidadeId: id, entidadeNome: d.titulo || atual.titulo, detalhe: `Livro editado: ${d.titulo || atual.titulo}` })
+  return { ok: true }
+}
+
+function deletarBibliotecaLivro(id, _req = {}) {
+  dbOk()
+  const livro = db.prepare('SELECT titulo FROM biblioteca_livros WHERE id = ?').get(id)
+  if (!livro) return { ok: false, erro: 'Livro não encontrado' }
+  const emprestado = db.prepare("SELECT COUNT(*) AS n FROM biblioteca_emprestimos WHERE livro_id=? AND status='ativo'").get(id)
+  if (emprestado.n > 0) return { ok: false, erro: 'Livro possui empréstimos ativos. Registre as devoluções primeiro.' }
+  db.prepare('DELETE FROM biblioteca_livros WHERE id = ?').run(id)
+  registrarLog({ usuarioId: _req.userId, usuarioLogin: _req.userLogin || 'sistema', modulo: 'biblioteca', acao: 'excluir', entidadeId: id, entidadeNome: livro.titulo, detalhe: `Livro removido do acervo: ${livro.titulo}`, nivel: 'aviso' })
+  return { ok: true }
+}
+
+function listarBibliotecaEmprestimos(filtros = {}) {
+  dbOk()
+  // Atualiza status de empréstimos vencidos
+  db.exec("UPDATE biblioteca_emprestimos SET status='atrasado' WHERE status='ativo' AND date('now','localtime') > data_prevista")
+  let sql = `
+    SELECT e.*, l.titulo AS livro_titulo_atual, l.categoria AS livro_categoria
+    FROM biblioteca_emprestimos e
+    JOIN biblioteca_livros l ON l.id = e.livro_id
+    WHERE 1=1
+  `
+  const params = []
+  if (filtros.status)   { sql += ' AND e.status = ?';      params.push(filtros.status) }
+  if (filtros.livro_id) { sql += ' AND e.livro_id = ?';    params.push(filtros.livro_id) }
+  if (filtros.busca) {
+    sql += ' AND (e.tomador_nome LIKE ? OR l.titulo LIKE ?)'
+    const b = `%${filtros.busca}%`
+    params.push(b, b)
+  }
+  sql += ' ORDER BY e.criado_em DESC'
+  return db.prepare(sql).all(...params)
+}
+
+function criarBibliotecaEmprestimo(d, _req = {}) {
+  dbOk()
+  const livro = db.prepare('SELECT * FROM biblioteca_livros WHERE id = ?').get(d.livro_id)
+  if (!livro) return { ok: false, erro: 'Livro não encontrado' }
+  if (livro.disponiveis <= 0) return { ok: false, erro: 'Não há exemplares disponíveis para empréstimo' }
+  const info = db.prepare(`
+    INSERT INTO biblioteca_emprestimos
+      (livro_id, livro_titulo, tomador_tipo, tomador_id, tomador_nome, tomador_turma, data_emprestimo, data_prevista, observacoes, criado_por)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    livro.id,
+    livro.titulo,
+    d.tomador_tipo  || 'aluno',
+    d.tomador_id    || null,
+    d.tomador_nome.trim(),
+    d.tomador_turma || '',
+    d.data_emprestimo || new Date().toISOString().split('T')[0],
+    d.data_prevista,
+    d.observacoes   || '',
+    _req.userLogin  || 'sistema',
+  )
+  db.prepare('UPDATE biblioteca_livros SET disponiveis = disponiveis - 1, atualizado_em = datetime(\'now\',\'localtime\') WHERE id = ?').run(livro.id)
+  registrarLog({ usuarioId: _req.userId, usuarioLogin: _req.userLogin || 'sistema', modulo: 'biblioteca', acao: 'criar', entidadeId: info.lastInsertRowid, entidadeNome: d.tomador_nome, detalhe: `Empréstimo: ${livro.titulo} → ${d.tomador_nome}` })
+  return { ok: true, id: info.lastInsertRowid }
+}
+
+function devolverBibliotecaEmprestimo(id, _req = {}) {
+  dbOk()
+  const emp = db.prepare('SELECT * FROM biblioteca_emprestimos WHERE id = ?').get(id)
+  if (!emp) return { ok: false, erro: 'Empréstimo não encontrado' }
+  if (emp.status === 'devolvido') return { ok: false, erro: 'Este empréstimo já foi devolvido' }
+  const hoje = new Date().toISOString().split('T')[0]
+  db.prepare("UPDATE biblioteca_emprestimos SET status='devolvido', data_devolucao=? WHERE id=?").run(hoje, id)
+  db.prepare("UPDATE biblioteca_livros SET disponiveis = disponiveis + 1, atualizado_em = datetime('now','localtime') WHERE id=?").run(emp.livro_id)
+  registrarLog({ usuarioId: _req.userId, usuarioLogin: _req.userLogin || 'sistema', modulo: 'biblioteca', acao: 'editar', entidadeId: id, entidadeNome: emp.tomador_nome, detalhe: `Devolução: ${emp.livro_titulo} ← ${emp.tomador_nome}` })
+  return { ok: true }
+}
+
+function deletarBibliotecaEmprestimo(id, _req = {}) {
+  dbOk()
+  const emp = db.prepare('SELECT * FROM biblioteca_emprestimos WHERE id = ?').get(id)
+  if (!emp) return { ok: false, erro: 'Empréstimo não encontrado' }
+  if (emp.status === 'ativo' || emp.status === 'atrasado') {
+    db.prepare("UPDATE biblioteca_livros SET disponiveis = disponiveis + 1, atualizado_em = datetime('now','localtime') WHERE id=?").run(emp.livro_id)
+  }
+  db.prepare('DELETE FROM biblioteca_emprestimos WHERE id = ?').run(id)
+  registrarLog({ usuarioId: _req.userId, usuarioLogin: _req.userLogin || 'sistema', modulo: 'biblioteca', acao: 'excluir', entidadeId: id, entidadeNome: emp.tomador_nome, detalhe: `Empréstimo excluído: ${emp.livro_titulo}`, nivel: 'aviso' })
+  return { ok: true }
+}
+
+function resumoBiblioteca() {
+  dbOk()
+  db.exec("UPDATE biblioteca_emprestimos SET status='atrasado' WHERE status='ativo' AND date('now','localtime') > data_prevista")
+  const totalLivros   = db.prepare('SELECT COUNT(*) AS n FROM biblioteca_livros WHERE ativo=1').get().n
+  const totalExemp    = db.prepare('SELECT COALESCE(SUM(total_exemplares),0) AS n FROM biblioteca_livros WHERE ativo=1').get().n
+  const emprestados   = db.prepare("SELECT COUNT(*) AS n FROM biblioteca_emprestimos WHERE status IN ('ativo','atrasado')").get().n
+  const atrasados     = db.prepare("SELECT COUNT(*) AS n FROM biblioteca_emprestimos WHERE status='atrasado'").get().n
+  return { totalLivros, totalExemp, emprestados, atrasados }
+}
+
 module.exports = {
   init, getDbPath,
   login,
@@ -2771,4 +3024,10 @@ module.exports = {
   listarEstoqueMovimentos, registrarMovimento, resumoEstoque,
   // Certificados (v5.12)
   listarCertificados, criarCertificado, deletarCertificado, resumoCertificados,
+  // Migração v6
+  limparDadosMigrados,
+  // Biblioteca (v5.15)
+  listarBibliotecaLivros, getBibliotecaLivro, criarBibliotecaLivro, editarBibliotecaLivro, deletarBibliotecaLivro,
+  listarBibliotecaEmprestimos, criarBibliotecaEmprestimo, devolverBibliotecaEmprestimo, deletarBibliotecaEmprestimo,
+  resumoBiblioteca,
 }

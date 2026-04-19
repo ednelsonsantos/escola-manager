@@ -698,17 +698,27 @@ export function AppProvider({ children, user = null, onLogout = null }) {
     setSettings(next); showToast('Configurações salvas!')
   }
 
-  const resetData = () => {
+  const resetData = async () => {
+    // Se migrado, limpa SQLite antes de restaurar seed no localStorage
+    if (settings?.sistema?.migradoSQLite) {
+      await window.electronAPI?.limparDadosMigrados(getReq())
+      updateSettings('sistema', { migradoSQLite: false })
+    }
     setAlunos(SEED_ALUNOS)
     setTurmas(SEED_TURMAS)
     setProfessores(SEED_PROFESSORES)
     setPagamentos(SEED_PAGAMENTOS)
     setEventos(SEED_EVENTOS)
-    showToast('Dados de demonstração carregados.', 'info')
+    showToast('Dados de demonstração carregados. Re-migre em Configurações → Dados se necessário.', 'info')
     registrarLog('sistema', 'reset_demo', '', 'Dados redefinidos para dados de demonstração', 'aviso')
   }
 
-  const limparTudo = () => {
+  const limparTudo = async () => {
+    // Se migrado, remove os dados do SQLite primeiro
+    if (settings?.sistema?.migradoSQLite) {
+      await window.electronAPI?.limparDadosMigrados(getReq())
+      updateSettings('sistema', { migradoSQLite: false })
+    }
     setAlunosRaw([])
     setTurmasRaw([])
     setProfRaw([])
@@ -723,7 +733,7 @@ export function AppProvider({ children, user = null, onLogout = null }) {
     registrarLog('sistema', 'limpar_tudo', '', 'Todos os dados removidos — sistema limpo para uso real', 'aviso')
   }
 
-  const restaurarBackup = (dados) => {
+  const restaurarBackup = async (dados) => {
     try {
       if (!dados || typeof dados !== 'object') return { ok: false, erro: 'Arquivo inválido — não é um JSON de backup.' }
 
@@ -737,6 +747,12 @@ export function AppProvider({ children, user = null, onLogout = null }) {
         return { ok: false, erro: 'Arquivo não parece ser um backup do Escola Manager. Campos esperados não encontrados.' }
       }
 
+      // Se migrado, limpa SQLite e reseta o flag antes de restaurar no localStorage.
+      // O usuário pode re-migrar em Configurações → Dados após a restauração.
+      if (settings?.sistema?.migradoSQLite) {
+        await window.electronAPI?.limparDadosMigrados(getReq())
+      }
+
       if (temAlunos)   setAlunos(dados.alunos)
       if (temTurmas)   setTurmas(dados.turmas)
       if (temProfs)    setProfessores(dados.professores)
@@ -745,9 +761,12 @@ export function AppProvider({ children, user = null, onLogout = null }) {
 
       if (dados.settings && typeof dados.settings === 'object') {
         const temaAtual = settings.aparencia?.tema
-        const settingsRestauradas = { ...dados.settings }
+        const settingsRestauradas = { ...dados.settings, sistema: { ...(dados.settings.sistema || {}), migradoSQLite: false } }
         if (temaAtual) settingsRestauradas.aparencia = { ...(settingsRestauradas.aparencia || {}), tema: temaAtual }
         setSettings(settingsRestauradas)
+      } else {
+        // Garante que o flag de migração é resetado mesmo sem seção de settings no backup
+        updateSettings('sistema', { migradoSQLite: false })
       }
 
       const stats = {
@@ -761,7 +780,7 @@ export function AppProvider({ children, user = null, onLogout = null }) {
       }
 
       registrarLog('sistema', 'restaurar_backup', '', `Backup restaurado — ${stats.alunos} alunos, ${stats.turmas} turmas, ${stats.pagamentos} pagamentos`, 'aviso')
-      showToast('Backup restaurado com sucesso!', 'success')
+      showToast('Backup restaurado! Re-migre para SQLite em Configurações → Dados se desejar.', 'success')
       return { ok: true, stats }
     } catch (e) {
       return { ok: false, erro: `Erro ao restaurar: ${e.message}` }
