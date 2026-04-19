@@ -447,6 +447,16 @@ ipcMain.handle('bib:emp:devolver',    (_, id, req)        => safe(() => db.devol
 ipcMain.handle('bib:emp:deletar',     (_, id, req)        => safe(() => db.deletarBibliotecaEmprestimo(id, req || {}), { ok: false }))
 ipcMain.handle('bib:resumo',          ()                  => safe(() => db.resumoBiblioteca(), {}))
 
+// ── Backup / Dump ───────────────────────────────────────────────────────────────
+ipcMain.handle('db:dump', () => {
+  try { return { ok: true, dump: db.gerarDumpSQLite() } }
+  catch (e) { return { ok: false, erro: e.message } }
+})
+ipcMain.handle('db:restaurarDump', (_, dumpSQL) => {
+  try { return { ok: true }, db.restaurarDumpSQLite(dumpSQL) }
+  catch (e) { return { ok: false, erro: e.message } }
+})
+
 // ── WhatsApp ──────────────────────────────────────────────────────────────────
 ipcMain.handle('whatsapp:abrir', (_, numero, mensagem) => {
   try {

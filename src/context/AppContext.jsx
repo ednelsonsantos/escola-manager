@@ -114,24 +114,33 @@ export function AppProvider({ children, user = null, onLogout = null }) {
         let pagamentosBackup  = JSON.parse(localStorage.getItem('em_pags')     || '[]')
         let eventosBackup     = JSON.parse(localStorage.getItem('em_eventos')  || '[]')
 
-        if (migrado && api.professoresListar) {
+    if (migrado && api.professoresListar) {
           try {
-            const [profs, turms, aluns, pags, evts] = await Promise.all([
-              api.professoresListar({}),
-              api.turmasListar({}),
-              api.alunosListar({}),
-              api.pagListar({}),
-              api.evtListar({}),
-            ])
-            if (profs?.length) professoresBackup = profs
-            if (turms?.length) turmasBackup      = turms
-            if (aluns?.length) alunosBackup      = aluns
-            if (pags?.length)  pagamentosBackup  = pags
-            if (evts?.length)  eventosBackup     = evts
+            const dumpRes = await api.dbDump?.()
+            if (dumpRes?.ok && dumpRes.dump) {
+              dados = { dump: dumpRes.dump, exportadoEm: new Date().toISOString(), versao: '5.15.0', migradoSQLite: true }
+              const json = dados.dump
+              await api.backupSalvar(json)
+              api.backupDone()
+              return
+            }
           } catch (e) {
-            console.warn('[BackupAuto] Fallback para localStorage:', e.message)
+            console.warn('[BackupAuto] Dump SQLite falhou, usando fallback:', e.message)
           }
         }
+
+        const [profs, turms, aluns, pags, evts] = await Promise.all([
+          api.professoresListar({}),
+          api.turmasListar({}),
+          api.alunosListar({}),
+          api.pagListar({}),
+          api.evtListar({}),
+        ])
+        if (profs?.length) professoresBackup = profs
+        if (turms?.length) turmasBackup      = turms
+        if (aluns?.length) alunosBackup      = aluns
+        if (pags?.length)  pagamentosBackup  = pags
+        if (evts?.length)  eventosBackup     = evts
 
         const dados = {
           alunos:      alunosBackup,
@@ -703,6 +712,28 @@ export function AppProvider({ children, user = null, onLogout = null }) {
   const restaurarBackup = async (dados) => {
     try {
       if (!dados || typeof dados !== 'object') return { ok: false, erro: 'Arquivo inválido — não é um JSON de backup.' }
+
+      // ── Dump SQLite (v6) ──
+      if (typeof dados.dump === 'string' && dados.dump) {
+        if (!window.electronAPI?.dbRestaurarDump) return { ok: false, erro: 'API de restore não disponível.' }
+        const res = await window.electronAPI.dbRestaurarDump(dados.dump)
+        if (!res?.ok) return { ok: false, erro: res?.erro || 'Erro ao restaurar dump SQLite.' }
+        // Recarrega dados do SQLite
+        const api = window.electronAPI
+        const [profs, turms, aluns, pags, evts] = await Promise.all([
+          api.professoresListar?.({}), api.turmasListar?.({}),
+          api.alunosListar?.({}), api.pagListar?.({}), api.evtListar?.({}),
+        ])
+        if (profs?.length) setProfRaw(profs)
+        if (turms?.length) setTurmasRaw(turms.map(t => ({ ...t, professorId: t.professor_id ?? t.professorId ?? null })))
+        if (aluns?.length) setAlunosRaw(aluns)
+        if (pags?.length)  setPagsRaw(pags)
+        if (evts?.length)  setEventosRaw(evts)
+        updateSettings('sistema', { migradoSQLite: true })
+        registrarLog('sistema', 'restaurar_backup', '', 'Backup dump SQLite restaurado', 'aviso')
+        showToast('Backup restaurado com sucesso!', 'success')
+        return { ok: true, stats: { dump: true, exportadoEm: dados.exportadoEm } }
+      }
 
       const temAlunos   = Array.isArray(dados.alunos)
       const temTurmas   = Array.isArray(dados.turmas)

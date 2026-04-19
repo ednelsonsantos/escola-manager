@@ -162,6 +162,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   bibEmpDeletar:    (id, req)        => ipcRenderer.invoke('bib:emp:deletar',    id, req),
   bibResumo:        ()               => ipcRenderer.invoke('bib:resumo'),
 
+  // Backup: dump SQLite puro
+  dbDump:  ()              => ipcRenderer.invoke('db:dump'),
+  dbRestaurarDump: (dump) => ipcRenderer.invoke('db:restaurarDump', dump),
+
   // WhatsApp — abre wa.me no navegador padrão com mensagem pré-preenchida
   whatsappAbrir: (numero, mensagem) => ipcRenderer.invoke('whatsapp:abrir', numero, mensagem),
 

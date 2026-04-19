@@ -1,4 +1,4 @@
-# 🎓 Escola Manager v5.15
+# 🎓 Escola Manager v5.15.1
 
 Sistema desktop completo para gestão de escolas de idiomas.
 **React 18 + Electron 29 + SQLite + PizZip · GPL-3.0 · Criado por Ednelson Santos**
@@ -369,19 +369,18 @@ O scheduler de recados agendados roda a cada 60s via `setInterval` no `main.js`.
 - [ ] Dashboard de gráficos avançados
 - [ ] Integração com Evolution API para envio em massa via WhatsApp
 
-### 🗄️ v6 — Migração para SQLite (preparação concluída, execução planejada)
+### 🗄️ v6 — Migração para SQLite (✅ Migração concluída na v5.15)
 
-O schema está completo e as migrations automáticas já rodam no startup. A migração de dados será feita em etapas:
+A partir da v5.15, o sistema utiliza SQLite como banco de dados principal. O backup automático agora gera um **dump SQL puro** do banco, e a restauração recupera todos os dados de forma_integrada. Dados anteriores em localStorage podem ser migrados via **Configurações → Dados → Migração localStorage → SQLite**.
 
-- [ ] CRUD SQLite para `professores_db` + handlers IPC
-- [ ] CRUD SQLite para `turmas_db` + handlers IPC
-- [ ] CRUD SQLite para `alunos_db` + handlers IPC
-- [ ] CRUD SQLite para `pagamentos_db` + handlers IPC + portar lógica de encargos
-- [ ] CRUD SQLite para `eventos_db` + handlers IPC
-- [ ] Script de migração: lê localStorage → insere no SQLite via `ls_id` → valida integridade
-- [ ] Refatorar `AppContext.jsx` para consumir via IPC em vez de localStorage
-- [ ] Adaptar backup para incluir dump das tabelas SQLite migradas
-- [ ] Adaptar módulo Recados para usar IDs SQLite reais (substituir `aluno_ls_id`)
+Funcionalidades:
+- [x] CRUD SQLite para `professores_db`, `turmas_db`, `alunos_db` + handlers IPC
+- [x] CRUD SQLite para `pagamentos_db` + handlers IPC + lógica de encargos (multa + juros + desconto antecipado)
+- [x] CRUD SQLite para `eventos_db` + handlers IPC
+- [x] Script de migração: lê localStorage → insere no SQLite preservando `ls_id` → valida integridade referencial
+- [x] `AppContext.jsx` consume dados via IPC quando `migradoSQLite=true`
+- [x] Backup automático: dump SQLite puro (todas as 26 tabelas) quando migrado
+- [ ] Adaptar módulo Recados para usar IDs SQLite reais (ainda usa `aluno_ls_id`)
 
 ---
 

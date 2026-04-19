@@ -3067,6 +3067,58 @@ function limparDadosMigrados(_req = {}) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// BACKUP / DUMP
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function gerarDumpSQLite() {
+  dbOk()
+  const tables = [
+    'perfis', 'usuarios', 'identidade', 'configuracoes', 'audit_log',
+    'professores_db', 'folha_pagamento', 'turmas_db', 'alunos_db',
+    'pagamentos_db', 'eventos_db', 'aulas', 'presencas',
+    'recados', 'recados_destinatarios', 'recados_leituras',
+    'fluxo_caixa', 'salas', 'reservas_sala', 'notas',
+    'estoque_itens', 'estoque_movimentos', 'certificados',
+    'biblioteca_livros', 'biblioteca_emprestimos',
+  ]
+  const lines = []
+  lines.push('PRAGMA foreign_keys = OFF;')
+  lines.push('PRAGMA journal_mode = WAL;')
+  for (const t of tables) {
+    try {
+      const rows = db.prepare(`SELECT * FROM ${t}`).all()
+      if (!rows.length) continue
+      lines.push(`-- ── ${t} ──`)
+      lines.push(`DELETE FROM ${t};`)
+      for (const row of rows) {
+        const cols = Object.keys(row)
+        const vals = cols.map(c => {
+          const v = row[c]
+          if (v === null || v === undefined) return 'NULL'
+          if (typeof v === 'number') return String(v)
+          return "'" + String(v).replace(/'/g, "''") + "'"
+        })
+        lines.push(`INSERT INTO ${t} (${cols.join(', ')}) VALUES (${vals.join(', ')});`)
+      }
+    } catch {}
+  }
+  lines.push('PRAGMA foreign_keys = ON;')
+  lines.push('PRAGMA integrity_check;')
+  return lines.join('\n')
+}
+
+function restaurarDumpSQLite(dumpSQL) {
+  dbOk()
+  const stm = db.transaction(() => {
+    db.exec('PRAGMA foreign_keys = OFF;')
+    db.exec(dumpSQL)
+    db.exec('PRAGMA foreign_keys = ON;')
+  })
+  stm()
+  return { ok: true }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // BIBLIOTECA (v5.15)
 // ═══════════════════════════════════════════════════════════════════════════════
 
