@@ -16,76 +16,12 @@ export function newId(list) {
   return list.length ? Math.max(...list.map(x => x.id)) + 1 : 1
 }
 
-// ── seed data ─────────────────────────────────────────────────────────────────
-const SEED_PROFESSORES = [
-  { id: 1, nome: 'James Wilson',    idioma: 'Inglês',   email: 'james@escola.com',  telefone: '(11) 91111-1111', ativo: true },
-  { id: 2, nome: 'Carmen López',    idioma: 'Espanhol', email: 'carmen@escola.com', telefone: '(11) 92222-2222', ativo: true },
-  { id: 3, nome: 'Marie Dupont',    idioma: 'Francês',  email: 'marie@escola.com',  telefone: '(11) 93333-3333', ativo: true },
-  { id: 4, nome: 'Klaus Fischer',   idioma: 'Alemão',   email: 'klaus@escola.com',  telefone: '(11) 94444-4444', ativo: true },
-  { id: 5, nome: 'Marco Rossi',     idioma: 'Italiano', email: 'marco@escola.com',  telefone: '(11) 95555-5555', ativo: true },
-]
-
-const SEED_TURMAS = [
-  { id: 1, codigo: 'ING-B1', idioma: 'Inglês',   nivel: 'Básico',         professorId: 1, horario: 'Seg/Qua 18h', vagas: 15, ativa: true },
-  { id: 2, codigo: 'ING-I1', idioma: 'Inglês',   nivel: 'Intermediário',  professorId: 1, horario: 'Ter/Qui 19h', vagas: 15, ativa: true },
-  { id: 3, codigo: 'ING-A1', idioma: 'Inglês',   nivel: 'Avançado',       professorId: 1, horario: 'Seg/Qua 20h', vagas: 12, ativa: true },
-  { id: 4, codigo: 'ESP-B1', idioma: 'Espanhol', nivel: 'Básico',         professorId: 2, horario: 'Ter/Qui 18h', vagas: 15, ativa: true },
-  { id: 5, codigo: 'ESP-I1', idioma: 'Espanhol', nivel: 'Intermediário',  professorId: 2, horario: 'Sex 14h',     vagas: 12, ativa: true },
-  { id: 6, codigo: 'FRA-B1', idioma: 'Francês',  nivel: 'Básico',         professorId: 3, horario: 'Seg/Qua 17h', vagas: 10, ativa: true },
-  { id: 7, codigo: 'ALE-B1', idioma: 'Alemão',   nivel: 'Básico',         professorId: 4, horario: 'Sáb 9h',     vagas: 10, ativa: true },
-  { id: 8, codigo: 'ITA-B1', idioma: 'Italiano', nivel: 'Básico',         professorId: 5, horario: 'Sáb 11h',    vagas: 10, ativa: true },
-]
-
-// ALTERADO: diaVencimento agora é por aluno (campo diaVencimento em cada aluno)
-const SEED_ALUNOS = [
-  { id:1,  nome:'Ana Carolina Silva',    email:'ana.silva@email.com',    telefone:'(11) 98765-4321', turmaId:3, mensalidade:320, status:'Ativo',   dataMatricula:'2024-02-10', dataNasc:'1998-05-12', obs:'', diaVencimento:10 },
-  { id:2,  nome:'Bruno Ferreira Costa',  email:'bruno.costa@email.com',  telefone:'(11) 91234-5678', turmaId:5, mensalidade:280, status:'Ativo',   dataMatricula:'2024-01-15', dataNasc:'2000-11-30', obs:'Responsável financeiro diferente', diaVencimento:15 },
-  { id:3,  nome:'Carla Mendes Oliveira', email:'carla.oliveira@email.com',telefone:'(11) 99876-5432', turmaId:1, mensalidade:250, status:'Ativo',   dataMatricula:'2024-03-01', dataNasc:'2005-07-22', obs:'', diaVencimento:10 },
-  { id:4,  nome:'Diego Santos Lima',     email:'diego.lima@email.com',   telefone:'(11) 97654-3210', turmaId:6, mensalidade:300, status:'Inativo', dataMatricula:'2023-11-20', dataNasc:'1995-02-14', obs:'Trancou matrícula', diaVencimento:10 },
-  { id:5,  nome:'Eduarda Pinheiro',      email:'eduarda.p@email.com',    telefone:'(11) 96543-2109', turmaId:2, mensalidade:280, status:'Ativo',   dataMatricula:'2024-02-28', dataNasc:'2003-09-08', obs:'', diaVencimento:5 },
-  { id:6,  nome:'Felipe Rodrigues',      email:'felipe.r@email.com',     telefone:'(11) 95432-1098', turmaId:7, mensalidade:320, status:'Ativo',   dataMatricula:'2024-01-08', dataNasc:'1999-04-17', obs:'', diaVencimento:10 },
-  { id:7,  nome:'Gabriela Torres',       email:'gabi.torres@email.com',  telefone:'(11) 94321-0987', turmaId:5, mensalidade:280, status:'Ativo',   dataMatricula:'2023-10-15', dataNasc:'2001-12-03', obs:'', diaVencimento:20 },
-  { id:8,  nome:'Henrique Almeida',      email:'henrique.a@email.com',   telefone:'(11) 93210-9876', turmaId:3, mensalidade:320, status:'Ativo',   dataMatricula:'2024-03-10', dataNasc:'1997-06-25', obs:'', diaVencimento:10 },
-  { id:9,  nome:'Isabela Cunha',         email:'isa.cunha@email.com',    telefone:'(11) 92109-8765', turmaId:8, mensalidade:300, status:'Ativo',   dataMatricula:'2024-02-20', dataNasc:'2004-01-19', obs:'', diaVencimento:10 },
-  { id:10, nome:'João Pedro Vieira',     email:'joao.vieira@email.com',  telefone:'(11) 91098-7654', turmaId:1, mensalidade:250, status:'Ativo',   dataMatricula:'2024-01-30', dataNasc:'2006-08-11', obs:'Menor de idade', diaVencimento:10 },
-  { id:11, nome:'Larissa Moura',         email:'larissa.m@email.com',    telefone:'(11) 90987-6543', turmaId:4, mensalidade:250, status:'Inativo', dataMatricula:'2023-09-05', dataNasc:'2002-03-28', obs:'', diaVencimento:10 },
-  { id:12, nome:'Matheus Carvalho',      email:'matheus.c@email.com',    telefone:'(11) 89876-5432', turmaId:2, mensalidade:280, status:'Ativo',   dataMatricula:'2024-03-05', dataNasc:'1996-10-07', obs:'', diaVencimento:10 },
-  { id:13, nome:'Natália Fernandes',     email:'nati.f@email.com',       telefone:'(11) 88765-4321', turmaId:4, mensalidade:250, status:'Ativo',   dataMatricula:'2024-03-15', dataNasc:'2007-05-14', obs:'Menor de idade', diaVencimento:10 },
-  { id:14, nome:'Otávio Mendonça',       email:'otavio.m@email.com',     telefone:'(11) 87654-3210', turmaId:6, mensalidade:300, status:'Ativo',   dataMatricula:'2024-01-22', dataNasc:'1993-07-31', obs:'', diaVencimento:10 },
-  { id:15, nome:'Paula Rocha',           email:'paula.r@email.com',      telefone:'(11) 86543-2109', turmaId:3, mensalidade:320, status:'Ativo',   dataMatricula:'2024-02-14', dataNasc:'1990-11-05', obs:'', diaVencimento:10 },
-]
-
-// Gera pagamentos dos últimos 6 meses para cada aluno ativo
 function mesRelativo(mesesAtras) {
   const d = new Date()
   d.setDate(1)
   d.setMonth(d.getMonth() - mesesAtras)
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`
 }
-
-// ALTERADO: usa diaVencimento do próprio aluno
-function gerarPagamentos() {
-  const pgs = []
-  let id = 1
-  const meses = Array.from({length:7}, (_,i) => mesRelativo(6 - i))
-  SEED_ALUNOS.filter(a => a.status === 'Ativo').forEach(aluno => {
-    const dia = String(aluno.diaVencimento || 10).padStart(2, '0')
-    meses.forEach((mes, mi) => {
-      const venc = `${mes}-${dia}`
-      let status = 'Pago'
-      let dataPgto = `${mes}-${String(Math.floor(Math.random()*9)+1).padStart(2,'0')}`
-      if (mi === meses.length - 1) {
-        if ([2,7,11].includes(aluno.id))    { status = 'Atrasado'; dataPgto = null }
-        else if ([9,14].includes(aluno.id)) { status = 'Pendente'; dataPgto = null }
-        else                                { status = 'Pago' }
-      }
-      pgs.push({ id: id++, alunoId: aluno.id, valor: aluno.mensalidade, vencimento: venc, status, dataPgto, mes })
-    })
-  })
-  return pgs
-}
-
-const SEED_PAGAMENTOS = gerarPagamentos()
 
 export function mesAtualDinamico() { return mesRelativo(0) }
 
@@ -106,19 +42,6 @@ export function mesLabel(mes) {
   return `${nomes[parseInt(m,10)-1]}/${y.slice(2)}`
 }
 
-function diasAPartirDeHoje(dias) {
-  const d = new Date(); d.setDate(d.getDate() + dias)
-  return d.toISOString().split('T')[0]
-}
-const SEED_EVENTOS = [
-  { id:1, titulo:'Reunião de professores',    data:diasAPartirDeHoje(3),  hora:'19:00', tipo:'reuniao',   desc:'Pauta: planejamento do semestre',  turmaId:null },
-  { id:2, titulo:'Prova de nivelamento ING',  data:diasAPartirDeHoje(7),  hora:'10:00', tipo:'prova',     desc:'Sala principal',                   turmaId:3    },
-  { id:3, titulo:'Feriado nacional',          data:diasAPartirDeHoje(15), hora:'',      tipo:'feriado',   desc:'',                                 turmaId:null },
-  { id:4, titulo:'Apresentação oral ESP-I1',  data:diasAPartirDeHoje(10), hora:'18:00', tipo:'atividade', desc:'Apresentações em espanhol',         turmaId:5    },
-  { id:5, titulo:'Vencimento mensalidades',   data:diasAPartirDeHoje(5),  hora:'',      tipo:'financeiro',desc:'Dia de vencimento padrão',          turmaId:null },
-  { id:6, titulo:'Início de novas turmas',    data:diasAPartirDeHoje(20), hora:'08:00', tipo:'turma',     desc:'Novas turmas do semestre',          turmaId:null },
-]
-
 // ALTERADO: removido diaVencimento global; adicionado descontoAntecipacao e jurosAtraso
 const DEFAULT_SETTINGS = {
   escola: { nome: 'Escola de Idiomas', cnpj: '', telefone: '', email: '', endereco: '', cidade: '' },
@@ -135,19 +58,6 @@ function loadLS(key, fallback) {
 }
 function saveLS(key, val) { try { localStorage.setItem(key, JSON.stringify(val)) } catch {} }
 
-function inicializarDados() {
-  const jaIniciou = localStorage.getItem('em_inicializado')
-  if (jaIniciou) return
-  if (localStorage.getItem('em_alunos')      === null) saveLS('em_alunos',    SEED_ALUNOS)
-  if (localStorage.getItem('em_turmas')      === null) saveLS('em_turmas',    SEED_TURMAS)
-  if (localStorage.getItem('em_profs')       === null) saveLS('em_profs',     SEED_PROFESSORES)
-  if (localStorage.getItem('em_pags')        === null) saveLS('em_pags',      SEED_PAGAMENTOS)
-  if (localStorage.getItem('em_eventos')     === null) saveLS('em_eventos',   SEED_EVENTOS)
-  if (localStorage.getItem('em_settings')    === null) saveLS('em_settings',  DEFAULT_SETTINGS)
-  localStorage.setItem('em_inicializado', '1')
-}
-
-inicializarDados()
 
 export function AppProvider({ children, user = null, onLogout = null }) {
   const [alunos,      setAlunosRaw]    = useState(() => loadLS('em_alunos',    []))
@@ -198,22 +108,26 @@ export function AppProvider({ children, user = null, onLogout = null }) {
           try { return JSON.parse(localStorage.getItem('em_settings') || '{}')?.sistema?.migradoSQLite } catch { return false }
         })()
 
-        // Se migrado, busca professores/turmas/alunos do SQLite para garantir
-        // que o backup contenha os dados mais recentes (escritos via IPC)
-        let professoresBackup = JSON.parse(localStorage.getItem('em_profs')  || '[]')
-        let turmasBackup      = JSON.parse(localStorage.getItem('em_turmas') || '[]')
-        let alunosBackup      = JSON.parse(localStorage.getItem('em_alunos') || '[]')
+        let professoresBackup = JSON.parse(localStorage.getItem('em_profs')    || '[]')
+        let turmasBackup      = JSON.parse(localStorage.getItem('em_turmas')   || '[]')
+        let alunosBackup      = JSON.parse(localStorage.getItem('em_alunos')   || '[]')
+        let pagamentosBackup  = JSON.parse(localStorage.getItem('em_pags')     || '[]')
+        let eventosBackup     = JSON.parse(localStorage.getItem('em_eventos')  || '[]')
 
         if (migrado && api.professoresListar) {
           try {
-            const [profs, turms, aluns] = await Promise.all([
+            const [profs, turms, aluns, pags, evts] = await Promise.all([
               api.professoresListar({}),
               api.turmasListar({}),
               api.alunosListar({}),
+              api.pagListar({}),
+              api.evtListar({}),
             ])
             if (profs?.length) professoresBackup = profs
             if (turms?.length) turmasBackup      = turms
             if (aluns?.length) alunosBackup      = aluns
+            if (pags?.length)  pagamentosBackup  = pags
+            if (evts?.length)  eventosBackup     = evts
           } catch (e) {
             console.warn('[BackupAuto] Fallback para localStorage:', e.message)
           }
@@ -223,11 +137,11 @@ export function AppProvider({ children, user = null, onLogout = null }) {
           alunos:      alunosBackup,
           turmas:      turmasBackup,
           professores: professoresBackup,
-          pagamentos:  JSON.parse(localStorage.getItem('em_pags')     || '[]'),
-          eventos:     JSON.parse(localStorage.getItem('em_eventos')  || '[]'),
+          pagamentos:  pagamentosBackup,
+          eventos:     eventosBackup,
           settings:    JSON.parse(localStorage.getItem('em_settings') || '{}'),
           exportadoEm: new Date().toISOString(),
-          versao:      '5.7.0',
+          versao:      '5.15.0',
           migradoSQLite: migrado || false,
         }
         const json = JSON.stringify(dados, null, 2)
@@ -414,7 +328,6 @@ export function AppProvider({ children, user = null, onLogout = null }) {
       return
     }
     // ── localStorage ──
-    const registrarPagamentoLS = (id, dataPgto = null) => {
     const pgto = pagamentos.find(p => p.id === id)
     if (!pgto) return
 
@@ -634,7 +547,7 @@ export function AppProvider({ children, user = null, onLogout = null }) {
       dados = {
         alunos, turmas, professores, pagamentos, eventos, settings,
         exportadoEm:   new Date().toISOString(),
-        versao:        '5.7.0',
+        versao:        '5.15.0',
         migradoSQLite: settings?.sistema?.migradoSQLite || false,
       }
       nome = 'escola-backup.json'
@@ -754,18 +667,17 @@ export function AppProvider({ children, user = null, onLogout = null }) {
   }
 
   const resetData = async () => {
-    // Se migrado, limpa SQLite antes de restaurar seed no localStorage
     if (settings?.sistema?.migradoSQLite) {
       await window.electronAPI?.limparDadosMigrados(getReq())
       updateSettings('sistema', { migradoSQLite: false })
     }
-    setAlunos(SEED_ALUNOS)
-    setTurmas(SEED_TURMAS)
-    setProfessores(SEED_PROFESSORES)
-    setPagamentos(SEED_PAGAMENTOS)
-    setEventos(SEED_EVENTOS)
-    showToast('Dados de demonstração carregados. Re-migre em Configurações → Dados se necessário.', 'info')
-    registrarLog('sistema', 'reset_demo', '', 'Dados redefinidos para dados de demonstração', 'aviso')
+    setAlunosRaw([]);     saveLS('em_alunos',  [])
+    setTurmasRaw([]);     saveLS('em_turmas',  [])
+    setProfRaw([]);       saveLS('em_profs',   [])
+    setPagsRaw([]);       saveLS('em_pags',    [])
+    setEventosRaw([]);    saveLS('em_eventos', [])
+    showToast('Sistema limpo. Pronto para novo cadastro.', 'info')
+    registrarLog('sistema', 'reset_demo', '', 'Dados resetados manualmente', 'aviso')
   }
 
   const limparTudo = async () => {

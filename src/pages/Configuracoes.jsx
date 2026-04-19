@@ -1062,12 +1062,11 @@ export default function Configuracoes() {
                   <div style={{display:'flex', justifyContent:'space-between', alignItems:'flex-start', gap:12}}>
                     <div>
                       <div style={{fontSize:14, fontWeight:600, color:'var(--text-1)', marginBottom:3}}>
-                        🔄 Carregar dados de demonstração
+                        🗑️ Limpar todos os dados
                       </div>
                       <div style={{fontSize:12.5, color:'var(--text-2)', lineHeight:1.5}}>
-                        Substitui todos os dados pelos exemplos de demonstração
-                        (15 alunos fictícios, 8 turmas, 5 professores e histórico de pagamentos).
-                        Útil para testar o sistema ou treinamento.
+                        Remove todos os registros (alunos, turmas, professores, pagamentos e eventos),
+                        deixando o sistema pronto para um novo cadastro real.
                       </div>
                     </div>
                     <button
@@ -1075,7 +1074,7 @@ export default function Configuracoes() {
                       style={{flexShrink:0}}
                       onClick={()=>setConfirm(true)}
                     >
-                      Carregar demo
+                      Limpar dados
                     </button>
                   </div>
                 </div>
@@ -1139,11 +1138,11 @@ export default function Configuracoes() {
         />
       )}
 
-      {/* Modal: Carregar demo */}
+      {/* Modal: Limpar dados */}
       {confirm && (
         <ConfirmModal
-          title="Carregar dados de demonstração"
-          msg="Os dados atuais serão substituídos pelos dados de exemplo (alunos fictícios, turmas e pagamentos de demonstração). Esta ação não pode ser desfeita."
+          title="⚠️ Limpar todos os dados"
+          msg="Todos os registros (alunos, turmas, professores, pagamentos e eventos) serão removidos permanentemente. As configurações do sistema serão mantidas. Esta ação não pode ser desfeita."
           onConfirm={()=>{ resetData(); setConfirm(false) }}
           onClose={()=>setConfirm(false)}
           danger
