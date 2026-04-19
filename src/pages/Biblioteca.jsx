@@ -13,7 +13,7 @@ import { createPortal } from 'react-dom'
 import {
   BookOpen, Plus, Pencil, Trash2, RefreshCw, Search, X,
   ArrowLeftRight, CheckCircle, AlertTriangle, Clock, BookMarked,
-  Users, Save, ChevronDown, Printer, Tag, Filter,
+  Users, Save, ChevronDown, Printer, Tag, Filter, History,
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext.jsx'
 import { ConfirmModal } from '../components/Modal.jsx'
@@ -514,11 +514,21 @@ function AbaEmprestimos({ permEditar }) {
 
 // ── Aba Carteirinha ───────────────────────────────────────────────────────────
 function AbaCarteirinha({ identidade }) {
-  const [nome,     setNome]     = useState('')
-  const [tipo,     setTipo]     = useState('Aluno')
-  const [turma,    setTurma]    = useState('')
-  const [validade, setValidade] = useState(addDias(365))
-  const [gerando,  setGerando]  = useState(false)
+  const [nome,       setNome]       = useState('')
+  const [tipo,       setTipo]       = useState('Aluno')
+  const [turma,      setTurma]      = useState('')
+  const [validade,   setValidade]   = useState(addDias(365))
+  const [gerando,    setGerando]    = useState(false)
+  const [historico,  setHistorico]  = useState([])
+  const [busca,      setBusca]      = useState('')
+  const [filtroTipo, setFiltroTipo] = useState('')
+
+  const carregarHistorico = useCallback(async () => {
+    const data = await window.electronAPI?.bibCarteirinhaListar({ busca, tipo: filtroTipo, limite: 50 })
+    setHistorico(data ?? [])
+  }, [busca, filtroTipo])
+
+  useEffect(() => { carregarHistorico() }, [carregarHistorico])
 
   async function gerarPDF() {
     if (!nome.trim()) { alert('Informe o nome do leitor'); return }
@@ -582,41 +592,108 @@ function AbaCarteirinha({ identidade }) {
       nomeArquivo: `carteirinha_${nome.replace(/\s+/g, '_')}.pdf`,
       opcoes: { pageSize: { width: 325, height: 204 }, margins: { top: 0, bottom: 0, left: 0, right: 0 } },
     })
+
+    const req = getReq()
+    await window.electronAPI?.bibCarteirinhaRegistrar({ nome: nome.trim(), tipo, turma, validade }, req)
+    setNome(''); setTurma(''); setValidade(addDias(365)); setTipo('Aluno')
+    carregarHistorico()
     setGerando(false)
   }
 
-  return (
-    <div style={{ maxWidth: 480, display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <p style={{ opacity: 0.6, fontSize: 13, margin: 0 }}>
-        Preencha os dados do leitor e gere a carteirinha em PDF (tamanho cartão — 86 × 54 mm).
-      </p>
+  function fmtDateTime(s) {
+    if (!s) return '—'
+    const d = new Date(s)
+    return d.toLocaleDateString('pt-BR') + ' ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+  }
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-        <div className="field" style={{ gridColumn: '1/-1' }}>
-          <label>Nome do leitor *</label>
-          <input value={nome} onChange={e => setNome(e.target.value)} placeholder="Nome completo"/>
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+      {/* Formulário */}
+      <div style={{ maxWidth: 480, display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <p style={{ opacity: 0.6, fontSize: 13, margin: 0 }}>
+          Preencha os dados do leitor e gere a carteirinha em PDF (tamanho cartão — 86 × 54 mm).
+        </p>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <div className="field" style={{ gridColumn: '1/-1' }}>
+            <label>Nome do leitor *</label>
+            <input value={nome} onChange={e => setNome(e.target.value)} placeholder="Nome completo"/>
+          </div>
+          <div className="field">
+            <label>Tipo</label>
+            <select value={tipo} onChange={e => setTipo(e.target.value)}>
+              <option>Aluno</option>
+              <option>Professor</option>
+              <option>Funcionário</option>
+            </select>
+          </div>
+          <div className="field">
+            <label>Turma (opcional)</label>
+            <input value={turma} onChange={e => setTurma(e.target.value)} placeholder="Ex: Inglês B2"/>
+          </div>
+          <div className="field">
+            <label>Válida até</label>
+            <input type="date" value={validade} onChange={e => setValidade(e.target.value)}/>
+          </div>
         </div>
-        <div className="field">
-          <label>Tipo</label>
-          <select value={tipo} onChange={e => setTipo(e.target.value)}>
+        <button className="btn-primary" style={{ alignSelf: 'flex-start', display: 'flex', gap: 8, alignItems: 'center' }} onClick={gerarPDF} disabled={gerando}>
+          <Printer size={15}/> {gerando ? 'Gerando PDF...' : 'Gerar Carteirinha PDF'}
+        </button>
+      </div>
+
+      {/* Histórico */}
+      <div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+          <History size={16} style={{ color: 'var(--accent)' }}/>
+          <span style={{ fontWeight: 600, fontSize: 14 }}>Histórico de Emissões</span>
+        </div>
+        <div className="toolbar" style={{ marginBottom: 10 }}>
+          <div className="search-box">
+            <Search size={14}/>
+            <input placeholder="Buscar por nome…" value={busca} onChange={e => setBusca(e.target.value)}/>
+            {busca && <button onClick={() => setBusca('')}><X size={13}/></button>}
+          </div>
+          <select className="select" value={filtroTipo} onChange={e => setFiltroTipo(e.target.value)} style={{ width: 140 }}>
+            <option value="">Todos os tipos</option>
             <option>Aluno</option>
             <option>Professor</option>
             <option>Funcionário</option>
           </select>
         </div>
-        <div className="field">
-          <label>Turma (opcional)</label>
-          <input value={turma} onChange={e => setTurma(e.target.value)} placeholder="Ex: Inglês B2"/>
-        </div>
-        <div className="field">
-          <label>Válida até</label>
-          <input type="date" value={validade} onChange={e => setValidade(e.target.value)}/>
-        </div>
-      </div>
 
-      <button className="btn-primary" style={{ alignSelf: 'flex-start', display: 'flex', gap: 8, alignItems: 'center' }} onClick={gerarPDF} disabled={gerando}>
-        <Printer size={15}/> {gerando ? 'Gerando PDF...' : 'Gerar Carteirinha PDF'}
-      </button>
+        {historico.length === 0 ? (
+          <div className="empty">
+            <History size={32} opacity={0.2}/>
+            <p>Nenhuma carteirinha emitida ainda.</p>
+          </div>
+        ) : (
+          <div className="table-wrap">
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>Nome</th>
+                  <th>Tipo</th>
+                  <th>Turma</th>
+                  <th>Validade</th>
+                  <th>Emitida em</th>
+                  <th>Por</th>
+                </tr>
+              </thead>
+              <tbody>
+                {historico.map(c => (
+                  <tr key={c.id}>
+                    <td style={{ fontWeight: 500 }}>{c.nome}</td>
+                    <td>{c.tipo}</td>
+                    <td>{c.turma || '—'}</td>
+                    <td>{fmtData(c.validade)}</td>
+                    <td style={{ fontSize: 12, color: 'var(--text-3)' }}>{fmtDateTime(c.emitida_em)}</td>
+                    <td style={{ fontSize: 12, color: 'var(--text-3)' }}>{c.emitida_por}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
     </div>
   )
 }

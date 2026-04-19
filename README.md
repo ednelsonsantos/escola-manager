@@ -1,4 +1,4 @@
-# 🎓 Escola Manager v5.15.1
+# 🎓 Escola Manager v5.15.2
 
 Sistema desktop completo para gestão de escolas de idiomas.
 **React 18 + Electron 29 + SQLite + PizZip · GPL-3.0 · Criado por Ednelson Santos**
@@ -74,11 +74,11 @@ npm run build     # gera instalador .exe para Windows
 | **Cursos** | Turmas com barra de ocupação, professores |
 | **Frequência** | Chamada por turma/aula, grid de aulas em cards horizontais (7/linha, responsivo), grupos por dia do calendário, substituição de professor com validação de conflito, relatório por perfil com filtro de data e calendário customizado, PDF |
 | **Folha de Pagamento** | Geração mensal por professor — CLT recebe salário fixo com desconto proporcional por horas não cumpridas; PJ recebe por hora ministrada com atualização automática ao abrir o módulo |
-| **Recados** | Criação, agendamento e envio de recados por secretaria/professor para alunos/turmas |
+| **Recados** | Criação, agendamento e envio de recados por secretaria/professor para alunos/turmas; leitura individual rastreada por `aluno_id` SQLite; `_criarLeituras` expande destinatários `turma` e `todos` para alunos individuais ativos |
 | **Fluxo de Caixa** | Lançamentos manuais de entradas/saídas, gráfico mensal de barras, resumo por categoria |
 | **Grade de Horários** | Grade visual semanal das turmas por dia da semana, cores por idioma |
 | **Carga Horária** | Horas ministradas por professor com detalhamento por turma e exportação CSV |
-| **Biblioteca** | Acervo de livros com CRUD, controle de exemplares disponíveis, empréstimos com data prevista e detecção automática de atraso, devolução com um clique, carteirinha de leitor em PDF (tamanho cartão) |
+| **Biblioteca** | Acervo de livros com CRUD, controle de exemplares disponíveis, empréstimos com data prevista e detecção automática de atraso, devolução com um clique, carteirinha de leitor em PDF (86×54 mm), histórico completo de emissões de carteirinhas com busca e filtro por tipo |
 | **Notas** | Lançamento de notas por turma/período, cálculo automático de média e conceito, ata em PDF; **Visão Geral** com todas as turmas em abas, filtros por professor e período |
 | **Reserva de Salas** | Gestão de espaços, reservas com detecção de conflito, calendário semanal |
 | **Inadimplentes** | Lista filtrada de alunos com atraso, envio de cobrança via Recados e WhatsApp em lote |
@@ -143,6 +143,8 @@ Configure em **Configurações → Financeiro → Pagamento via Pix**.
 | Relatórios → Aba Financeiro | Relatório financeiro do período |
 | Relatórios → Aba Alunos | Lista completa de alunos |
 | Frequência → Relatório | Frequência por aluno com progresso |
+| Biblioteca → Carteirinha | Carteirinha de leitor 86×54 mm com logo da escola |
+| Certificados | Certificado de conclusão A4 paisagem com template configurável |
 
 ---
 
@@ -188,6 +190,8 @@ No módulo **Frequência**, ao abrir uma aula o professor pode marcar **"Profess
 | Restaurar backup | Configurações → Dados → Restaurar Backup |
 | Abrir pasta de backups | Configurações → Sistema → "📁 Abrir pasta" |
 
+A partir da **v5.15.1**, o backup automático gera um **dump SQL puro** de todas as 26 tabelas quando `migradoSQLite=true` (`PRAGMA foreign_keys=OFF` + `DELETE` + `INSERT` por tabela em transaction). A restauração detecta o formato automaticamente e aceita tanto dump SQL quanto JSON legado.
+
 Backups em: `%APPDATA%\Escola Manager\backups\` (últimos 10 mantidos automaticamente)
 
 ---
@@ -207,31 +211,33 @@ Backups em: `%APPDATA%\Escola Manager\backups\` (últimos 10 mantidos automatica
 ## 🏗️ Estrutura do Projeto
 
 ```
-escola-v5/
+escola-manager/
 ├── electron/
-│   ├── main.js          # IPC, janela, PDF, WhatsApp, backup, frequência, recados, exportação
+│   ├── main.js          # IPC handlers, janela, PDF, WhatsApp, backup/dump, scheduler de recados
 │   ├── preload.js       # Bridge segura renderer ↔ main (contextBridge)
-│   └── database.js      # SQLite: auth, auditoria, frequência, recados, estoque, certificados, schema v6
+│   └── database.js      # SQLite: todas as tabelas, migrations, funções de negócio
 ├── src/
 │   ├── utils/
 │   │   └── pdfUtils.js        # Gerador HTML/CSS para PDF + enviarWhatsApp
 │   ├── context/
-│   │   ├── AppContext.jsx     # Dados + backup + encargos + restauração
-│   │   ├── AuthContext.jsx    # Sessão e identidade visual
+│   │   ├── AppContext.jsx     # Dados (SQLite via IPC), backup/dump, encargos, restauração
+│   │   ├── AuthContext.jsx    # Sessão, identidade visual e permissões
 │   │   └── UsuariosContext.jsx
 │   ├── pages/
-│   │   ├── Dashboard.jsx      ├── Alunos.jsx       ├── EditarAluno.jsx
-│   │   ├── Financeiro.jsx     ├── Cursos.jsx       ├── EditarTurma.jsx
-│   │   ├── EditarProfessor.jsx├── Frequencia.jsx   ├── Relatorios.jsx
-│   │   ├── Agenda.jsx         ├── EditarEvento.jsx ├── Usuarios.jsx
-│   │   ├── EditarUsuario.jsx  ├── EditarPerfil.jsx ├── AuditLog.jsx
+│   │   ├── Dashboard.jsx      ├── Alunos.jsx         ├── EditarAluno.jsx
+│   │   ├── Financeiro.jsx     ├── Cursos.jsx         ├── EditarTurma.jsx
+│   │   ├── EditarProfessor.jsx├── Frequencia.jsx     ├── Relatorios.jsx
+│   │   ├── Agenda.jsx         ├── EditarEvento.jsx   ├── Usuarios.jsx
+│   │   ├── EditarUsuario.jsx  ├── EditarPerfil.jsx   ├── AuditLog.jsx
 │   │   ├── Configuracoes.jsx  ├── Sobre.jsx
-│   │   ├── FluxoCaixa.jsx     ├── GradeHorarios.jsx├── CargaHoraria.jsx
-│   │   ├── Notas.jsx          ├── ReservaSalas.jsx ├── Inadimplentes.jsx
-│   │   ├── Estoque.jsx        ├── Certificados.jsx
+│   │   ├── FluxoCaixa.jsx     ├── GradeHorarios.jsx  ├── CargaHoraria.jsx
+│   │   ├── Notas.jsx          ├── ReservaSalas.jsx   ├── Inadimplentes.jsx
+│   │   ├── Estoque.jsx        ├── Certificados.jsx   ├── Biblioteca.jsx
 │   │   └── Recados/
 │   │       ├── Recados.jsx        # Painel admin/secretaria/professor
-│   │       └── RecadosAluno.jsx   # Painel aluno/responsável + hook badge
+│   │       ├── RecadosAluno.jsx   # Painel aluno/responsável + hook badge (IDs SQLite)
+│   │       ├── RecadosPage.jsx    # Página principal com filtros por perfil
+│   │       └── useRecados.js      # Hooks: useRecados (admin) + useRecadosAluno (aluno)
 │   └── style.css              # Design system (dark + light)
 ├── dev-runner.js        # Inicia Vite + Electron com porta real detectada
 └── package.json
@@ -243,33 +249,32 @@ escola-v5/
 
 | Tabela | Descrição |
 |---|---|
-| `perfis` | Perfis de acesso e permissões |
-| `usuarios` | Contas de usuário |
+| `perfis` | Perfis de acesso e permissões por módulo (`perm_*`) |
+| `usuarios` | Contas de usuário com vínculo a `professores_db` via `professor_db_id` |
 | `identidade` | Logo e nome da escola |
-| `configuracoes` | Chave-valor de configurações |
-| `audit_log` | Log completo de auditoria |
-| `professores_db` | Professores — schema v6 completo |
-| `turmas_db` | Turmas — schema v6 completo |
-| `alunos_db` | Alunos — schema v6 com `ls_id`, `dia_vencimento`, dados de responsável, status Lista de Espera |
+| `configuracoes` | Chave-valor de configurações globais |
+| `audit_log` | Log completo de auditoria com módulo, ação, nível e detalhe |
+| `professores_db` | Professores — schema v6 com tipo de contrato CLT/PJ, salários e carga horária |
+| `turmas_db` | Turmas — schema v6 completo com idioma, horário, professor e capacidade |
+| `alunos_db` | Alunos — schema v6 com `ls_id` (legado), `dia_vencimento`, dados de responsável, status Lista de Espera, múltiplas matrículas e desconto |
 | `pagamentos_db` | Pagamentos — schema v6 com `valor_original`, `valor_multa`, `valor_juros`, `valor_desconto`, `dias_atraso` |
 | `eventos_db` | Eventos de agenda — schema v6 completo |
-| `aulas` | Aulas por turma — `conteudo`, `professor_ausente`, `justificativa_ausencia`, `professor_id` (substituto) |
+| `aulas` | Aulas por turma com conteúdo, `professor_ausente`, `justificativa_ausencia` e `professor_id` (substituto) |
 | `folha_pagamento` | Folha mensal por professor — tipo CLT/PJ, horas normais/extras, bruto, deduções, líquido, status (Aberta/Fechada/Paga) |
 | `presencas` | Presenças por aula e aluno |
 | `recados` | Recados com título, mensagem, prioridade, status e agendamento |
-| `recados_destinatarios` | Destinatários de cada recado (aluno, turma, todos, etc.) |
-| `recados_leituras` | Controle de leitura por aluno |
-| `fluxo_caixa` | Lançamentos de entrada/saída com categoria, valor, data e mês (v5.8) |
-| `salas` | Espaços físicos com capacidade, descrição e recursos JSON (v5.9) |
-| `reservas_sala` | Reservas com sala, responsável, horário, status e vínculo com turma (v5.9) |
-| `notas` | Notas por aluno/turma/período — parcial, final, recuperação, conceito (v5.10) |
-| `estoque_itens` | Itens do estoque com categoria, unidade, quantidade, mínimo e preços (v5.11) |
-| `estoque_movimentos` | Histórico de entradas, saídas e ajustes de inventário (v5.11) |
-| `certificados` | Certificados emitidos por aluno e turma, com campos de template e assinaturas (v5.12) |
-| `biblioteca_livros` | Acervo de livros — título, autor, ISBN, editora, ano, categoria, localização, total/disponíveis (v5.15) |
-| `biblioteca_emprestimos` | Empréstimos — livro, tomador (aluno/professor/outro), datas de empréstimo/prevista/devolução, status (ativo/devolvido/atrasado) (v5.15) |
-
-> **Nota v6:** As tabelas `professores_db`, `turmas_db`, `alunos_db`, `pagamentos_db` e `eventos_db` têm schema completo e migration automática aplicada, mas ainda são alimentadas pelo localStorage. A migração de dados está planejada — veja o Roadmap.
+| `recados_destinatarios` | Destinatários de cada recado (aluno, turma, todos, etc.) com `referencia_id` SQLite |
+| `recados_leituras` | Controle de leitura por `aluno_id` (FK → `alunos_db.id`) — migrado de `aluno_ls_id` na v5.15.2 |
+| `fluxo_caixa` | Lançamentos de entrada/saída com categoria, valor, data e mês |
+| `salas` | Espaços físicos com capacidade, descrição e recursos JSON |
+| `reservas_sala` | Reservas com sala, responsável, horário, status e vínculo com turma |
+| `notas` | Notas por aluno/turma/período — parcial, final, recuperação, conceito |
+| `estoque_itens` | Itens do estoque com categoria, unidade, quantidade, mínimo e preços |
+| `estoque_movimentos` | Histórico de entradas, saídas e ajustes de inventário |
+| `certificados` | Certificados emitidos por aluno e turma, com campos de template e assinaturas |
+| `biblioteca_livros` | Acervo de livros — título, autor, ISBN, editora, ano, categoria, localização, total/disponíveis |
+| `biblioteca_emprestimos` | Empréstimos — livro, tomador (aluno/professor/outro), datas de empréstimo/prevista/devolução, status (ativo/devolvido/atrasado) |
+| `biblioteca_carteirinhas` | Histórico de emissões de carteirinhas — nome, tipo, turma, validade, emitida_em, emitida_por |
 
 ---
 
@@ -278,14 +283,33 @@ escola-v5/
 | Channel | Parâmetros | Descrição |
 |---|---|---|
 | `recados:listar` | `filtros, req` | Lista recados com filtros |
-| `recados:paraAluno` | `{ aluno_ls_id, turma_ls_id }` | Recados recebidos por aluno |
-| `recados:naoLidos` | `{ aluno_ls_id, turma_ls_id }` | Contador de não lidos |
+| `recados:paraAluno` | `{ aluno_id, turma_id }` | Recados recebidos por aluno (IDs SQLite) |
+| `recados:naoLidos` | `{ aluno_id, turma_id }` | Contador de não lidos |
 | `recados:salvar` | `dados, req` | Criar/editar rascunho ou agendar |
 | `recados:enviar` | `{ id }, req` | Enviar recado imediatamente |
-| `recados:marcarLido` | `{ recado_id, aluno_ls_id }` | Marcar como lido |
+| `recados:marcarLido` | `{ recado_id, aluno_id }` | Marcar como lido (ID SQLite) |
 | `recados:excluir` | `{ id }, req` | Excluir rascunho |
 
 O scheduler de recados agendados roda a cada 60s via `setInterval` no `main.js`.
+
+---
+
+## 📚 Módulo de Biblioteca — IPC Channels
+
+| Channel | Parâmetros | Descrição |
+|---|---|---|
+| `bib:livros:listar` | `filtros` | Lista livros com busca e filtro de categoria/ativo |
+| `bib:livros:get` | `id` | Obter livro por ID |
+| `bib:livros:criar` | `dados, req` | Criar livro no acervo |
+| `bib:livros:editar` | `id, dados, req` | Editar livro (recalcula disponíveis) |
+| `bib:livros:deletar` | `id, req` | Deletar livro (bloqueia se há empréstimos ativos) |
+| `bib:emp:listar` | `filtros` | Lista empréstimos (atualiza atrasados automaticamente) |
+| `bib:emp:criar` | `dados, req` | Criar empréstimo (valida disponibilidade) |
+| `bib:emp:devolver` | `id, req` | Registrar devolução e incrementar disponíveis |
+| `bib:emp:deletar` | `id, req` | Deletar empréstimo (restaura disponíveis se ativo) |
+| `bib:resumo` | — | KPIs: títulos, exemplares, emprestados, atrasados |
+| `bib:carteirinha:registrar` | `dados, req` | Salvar emissão de carteirinha no histórico |
+| `bib:carteirinha:listar` | `filtros` | Listar histórico com busca por nome e filtro por tipo |
 
 ---
 
@@ -300,6 +324,8 @@ O scheduler de recados agendados roda a cada 60s via `setInterval` no `main.js`.
 | **Imports no renderer** | Sempre ES modules (`import`) — Vite não aceita `require()` |
 | **Binários via IPC** | `Array.from(Uint8Array)` no renderer → `Buffer.from(array)` no main |
 | **Scheduler** | `setInterval` no main.js após `db.init()` |
+| **IDs de alunos** | Sempre `alunos_db.id` (SQLite) — `ls_id` existe apenas para compatibilidade de migração |
+| **Migrations** | Adicionadas ao bloco `try/catch` em `database.js` com log `[DB] Migração vX.Y.Z:` |
 
 ---
 
@@ -355,32 +381,15 @@ O scheduler de recados agendados roda a cada 60s via `setInterval` no `main.js`.
 - [x] **v5.13** — Frequência: vinculação usuário → professor (`professor_db_id` em `usuarios`), auto-preenchimento ao criar aula com perfil Professor
 - [x] **v5.13** — Carga Horária: `LEFT JOIN turmas_db` + `COALESCE` garantem que substituições contam para o professor que ministrou, não para o titular
 - [x] **v5.13** — Folha de Pagamento: lógica CLT/PJ corrigida — CLT usa `salario_fixo_ref` como base do bruto (não horas × valor); PJ sincroniza `horas_normais` automaticamente ao listar
+- [x] **v5.15** — Módulo Biblioteca completo: acervo (CRUD de livros com busca por título/autor/ISBN, categoria, localização, controle de exemplares disponíveis), empréstimos (registro, datas prevista/devolução, detecção automática de atraso, devolução com um clique), carteirinha de leitor em PDF (86×54 mm com logo e validade), histórico de emissões de carteirinhas com busca por nome e filtro por tipo, sistema de permissões `perm_biblioteca`, auditoria completa
+- [x] **v5.15** — Migração v6 completa: CRUD SQLite para `professores_db`, `turmas_db`, `alunos_db`, `pagamentos_db`, `eventos_db` com handlers IPC; `AppContext.jsx` consome dados via IPC quando `migradoSQLite=true`; script de migração localStorage → SQLite preservando `ls_id`
+- [x] **v5.15.1** — Backup dump SQLite puro: `db:dump` gera SQL de todas as 26 tabelas (`PRAGMA foreign_keys=OFF` + `DELETE` + `INSERT` em transaction); `db:restaurarDump` detecta formato (dump SQL vs JSON legado) e executa restauração integrada; `AppContext.onBeforeClose` usa `dbDump()` quando migrado
+- [x] **v5.15.2** — Recados migrados para IDs SQLite reais: `recados_leituras.aluno_ls_id` renomeado para `aluno_id` (FK → `alunos_db.id`) com migration automática; `_criarLeituras` expandido para resolver destinatários `turma` e `todos` em alunos individuais ativos via `alunos_db`; `useRecados.js` com canais IPC corrigidos
+- [x] **v5.15.2** — Histórico de emissões de carteirinhas: tabela `biblioteca_carteirinhas` no SQLite, handlers IPC `bib:carteirinha:registrar` e `bib:carteirinha:listar`, registro automático após geração do PDF, tabela de histórico na aba Carteirinha com busca por nome e filtro por tipo (Aluno/Professor/Funcionário)
 
-### 🔄 Segunda onda — em andamento
+### 🗄️ v6 — Migração para SQLite (✅ Concluída na v5.15.2)
 
-- [x] **v5.15** — Biblioteca: acervo com CRUD de livros (título, autor, ISBN, categoria, exemplares, localização), controle de disponibilidade, empréstimos com data prevista e detecção automática de atraso, devolução com um clique, carteirinha de leitor em PDF (tamanho cartão 86×54 mm) com logo da escola e validade
-
-### 🔬 Terceira onda — futuro
-
-- [ ] Emissão de NF de serviço
-- [ ] Geolocalização de alunos e equipe
-- [ ] Armazenamento de documentos
-- [ ] Contrato digital com aceite online
-- [ ] Dashboard de gráficos avançados
-- [ ] Integração com Evolution API para envio em massa via WhatsApp
-
-### 🗄️ v6 — Migração para SQLite (✅ Migração concluída na v5.15)
-
-A partir da v5.15, o sistema utiliza SQLite como banco de dados principal. O backup automático agora gera um **dump SQL puro** do banco, e a restauração recupera todos os dados de forma_integrada. Dados anteriores em localStorage podem ser migrados via **Configurações → Dados → Migração localStorage → SQLite**.
-
-Funcionalidades:
-- [x] CRUD SQLite para `professores_db`, `turmas_db`, `alunos_db` + handlers IPC
-- [x] CRUD SQLite para `pagamentos_db` + handlers IPC + lógica de encargos (multa + juros + desconto antecipado)
-- [x] CRUD SQLite para `eventos_db` + handlers IPC
-- [x] Script de migração: lê localStorage → insere no SQLite preservando `ls_id` → valida integridade referencial
-- [x] `AppContext.jsx` consume dados via IPC quando `migradoSQLite=true`
-- [x] Backup automático: dump SQLite puro (todas as 26 tabelas) quando migrado
-- [ ] Adaptar módulo Recados para usar IDs SQLite reais (ainda usa `aluno_ls_id`)
+A partir da v5.15, o sistema utiliza SQLite como banco de dados principal em todos os módulos. O backup automático gera um **dump SQL puro** do banco completo, e a restauração recupera todos os dados de forma integrada. Dados anteriores em localStorage podem ser migrados via **Configurações → Dados → Migração localStorage → SQLite**.
 
 ---
 

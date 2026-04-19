@@ -339,14 +339,14 @@ function criarTabelas() {
     CREATE TABLE IF NOT EXISTS recados_leituras (
       id          INTEGER PRIMARY KEY AUTOINCREMENT,
       recado_id   INTEGER NOT NULL REFERENCES recados(id) ON DELETE CASCADE,
-      aluno_ls_id INTEGER NOT NULL,
+      aluno_id    INTEGER NOT NULL REFERENCES alunos_db(id) ON DELETE CASCADE,
       lido        INTEGER NOT NULL DEFAULT 0,
       lido_em     TEXT,
       criado_em   TEXT    NOT NULL DEFAULT (datetime('now','localtime')),
-      UNIQUE(recado_id, aluno_ls_id)
+      UNIQUE(recado_id, aluno_id)
     );
 
-    CREATE INDEX IF NOT EXISTS idx_leituras_aluno  ON recados_leituras(aluno_ls_id);
+    CREATE INDEX IF NOT EXISTS idx_leituras_aluno  ON recados_leituras(aluno_id);
     CREATE INDEX IF NOT EXISTS idx_leituras_recado ON recados_leituras(recado_id);
 
     -- ── FLUXO DE CAIXA (v5.8) ──────────────────────────────────────────────────
@@ -523,6 +523,18 @@ function criarTabelas() {
 
     CREATE INDEX IF NOT EXISTS idx_bib_emp_livro  ON biblioteca_emprestimos(livro_id);
     CREATE INDEX IF NOT EXISTS idx_bib_emp_status ON biblioteca_emprestimos(status);
+
+    CREATE TABLE IF NOT EXISTS biblioteca_carteirinhas (
+      id          INTEGER PRIMARY KEY AUTOINCREMENT,
+      nome        TEXT    NOT NULL,
+      tipo        TEXT    DEFAULT 'Aluno',
+      turma       TEXT    DEFAULT '',
+      validade    TEXT,
+      emitida_em  TEXT    DEFAULT (datetime('now','localtime')),
+      emitida_por TEXT    DEFAULT 'sistema'
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_bib_cart_nome ON biblioteca_carteirinhas(nome);
   `)
 
   // Trigger para atualizar atualizado_em nos recados
@@ -689,6 +701,19 @@ function migrarSchema() {
 
   } catch (e) {
     console.warn('[DB] migrarSchema v6:', e.message)
+  }
+
+  // ── Migração v5.15.2: recados_leituras — aluno_ls_id → aluno_id ─────────────
+  try {
+    if (tabelasExistentes.includes('recados_leituras')) {
+      const cols = db.prepare('PRAGMA table_info(recados_leituras)').all().map(c => c.name)
+      if (cols.includes('aluno_ls_id') && !cols.includes('aluno_id')) {
+        db.exec('ALTER TABLE recados_leituras RENAME COLUMN aluno_ls_id TO aluno_id')
+        console.log('[DB] Migração v5.15.2: recados_leituras.aluno_ls_id renomeado para aluno_id')
+      }
+    }
+  } catch (e) {
+    console.warn('[DB] migrarSchema v5.15.2 (recados_leituras):', e.message)
   }
 
   // ── Migração v5.15: perm_biblioteca em perfis ────────────────────────────────
@@ -1157,7 +1182,7 @@ function listarRecados({ status = null, remetente_tipo = null, remetente_id = nu
   return recados.map(r => ({ ...r, destinatarios: stmtDest.all(r.id) }))
 }
 
-function recadosParaAluno({ aluno_ls_id, turma_ls_id = -1 }) {
+function recadosParaAluno({ aluno_id, turma_id = -1 }) {
   dbOk()
   return db.prepare(`
     SELECT DISTINCT r.*,
@@ -1165,24 +1190,24 @@ function recadosParaAluno({ aluno_ls_id, turma_ls_id = -1 }) {
       rl.lido_em
     FROM recados r
     JOIN recados_destinatarios rd ON rd.recado_id = r.id
-    LEFT JOIN recados_leituras rl ON rl.recado_id = r.id AND rl.aluno_ls_id = ?
+    LEFT JOIN recados_leituras rl ON rl.recado_id = r.id AND rl.aluno_id = ?
     WHERE r.status = 'enviado'
       AND (
-        (rd.tipo = 'aluno'        AND rd.referencia_id = ?)
-        OR (rd.tipo = 'turma'     AND rd.referencia_id = ?)
+        (rd.tipo = 'aluno'    AND rd.referencia_id = ?)
+        OR (rd.tipo = 'turma' AND rd.referencia_id = ?)
         OR rd.tipo = 'todos'
       )
     ORDER BY r.enviado_em DESC
-  `).all(aluno_ls_id, aluno_ls_id, turma_ls_id)
+  `).all(aluno_id, aluno_id, turma_id)
 }
 
-function contarNaoLidos({ aluno_ls_id, turma_ls_id = -1 }) {
+function contarNaoLidos({ aluno_id, turma_id = -1 }) {
   dbOk()
   const row = db.prepare(`
     SELECT COUNT(DISTINCT r.id) AS total
     FROM recados r
     JOIN recados_destinatarios rd ON rd.recado_id = r.id
-    LEFT JOIN recados_leituras rl ON rl.recado_id = r.id AND rl.aluno_ls_id = ?
+    LEFT JOIN recados_leituras rl ON rl.recado_id = r.id AND rl.aluno_id = ?
     WHERE r.status = 'enviado'
       AND COALESCE(rl.lido, 0) = 0
       AND (
@@ -1190,7 +1215,7 @@ function contarNaoLidos({ aluno_ls_id, turma_ls_id = -1 }) {
         OR (rd.tipo = 'turma' AND rd.referencia_id = ?)
         OR rd.tipo = 'todos'
       )
-  `).get(aluno_ls_id, aluno_ls_id, turma_ls_id)
+  `).get(aluno_id, aluno_id, turma_id)
   return row?.total ?? 0
 }
 
@@ -1261,14 +1286,14 @@ function enviarRecado({ id }, _req = {}) {
   return { ok:true }
 }
 
-function marcarRecadoLido({ recado_id, aluno_ls_id }) {
+function marcarRecadoLido({ recado_id, aluno_id }) {
   dbOk()
   db.prepare(`
-    INSERT INTO recados_leituras (recado_id, aluno_ls_id, lido, lido_em)
+    INSERT INTO recados_leituras (recado_id, aluno_id, lido, lido_em)
     VALUES (?, ?, 1, datetime('now','localtime'))
-    ON CONFLICT(recado_id, aluno_ls_id)
+    ON CONFLICT(recado_id, aluno_id)
     DO UPDATE SET lido=1, lido_em=datetime('now','localtime')
-  `).run(recado_id, aluno_ls_id)
+  `).run(recado_id, aluno_id)
   return { ok:true }
 }
 
@@ -1285,20 +1310,25 @@ function excluirRecado({ id }, _req = {}) {
   return { ok:true }
 }
 
-// Helper interno — cria entradas de leitura expandindo grupos para aluno_ls_id
-// Nota: como alunos ainda estão no localStorage na v5, usamos referencia_id diretamente
-// Quando migrar para v6 (alunos no SQLite), adaptar queries para alunos_db
+// Helper interno — cria entradas de leitura em recados_leituras usando aluno_id (SQLite)
 function _criarLeituras(recadoId, destinatarios) {
   const stmt = db.prepare(`
-    INSERT OR IGNORE INTO recados_leituras (recado_id, aluno_ls_id) VALUES (?, ?)
+    INSERT OR IGNORE INTO recados_leituras (recado_id, aluno_id) VALUES (?, ?)
   `)
   for (const dest of destinatarios) {
     if (dest.tipo === 'aluno' && dest.referencia_id) {
       stmt.run(recadoId, dest.referencia_id)
+    } else if (dest.tipo === 'turma' && dest.referencia_id) {
+      const alunos = db.prepare(
+        "SELECT id FROM alunos_db WHERE turma_id = ? AND status = 'Ativo'"
+      ).all(dest.referencia_id)
+      for (const a of alunos) stmt.run(recadoId, a.id)
+    } else if (dest.tipo === 'todos') {
+      const alunos = db.prepare(
+        "SELECT id FROM alunos_db WHERE status = 'Ativo'"
+      ).all()
+      for (const a of alunos) stmt.run(recadoId, a.id)
     }
-    // turma, todos, lista_espera, inadimplentes: leituras criadas quando o aluno
-    // abre o painel — o query de recadosParaAluno já filtra pela turma/grupo.
-    // Para rastrear leitura individual, basta chamar marcarRecadoLido() ao abrir.
   }
 }
 
@@ -3279,6 +3309,29 @@ function deletarBibliotecaEmprestimo(id, _req = {}) {
   return { ok: true }
 }
 
+function registrarCarteirinha(d, _req = {}) {
+  dbOk()
+  const info = db.prepare(`
+    INSERT INTO biblioteca_carteirinhas (nome, tipo, turma, validade, emitida_por)
+    VALUES (?, ?, ?, ?, ?)
+  `).run(d.nome, d.tipo || 'Aluno', d.turma || '', d.validade || null, _req.userLogin || 'sistema')
+  return { ok: true, id: info.lastInsertRowid }
+}
+
+function listarCarteirinhas(filtros = {}) {
+  dbOk()
+  let sql = 'SELECT * FROM biblioteca_carteirinhas WHERE 1=1'
+  const params = []
+  if (filtros.busca) {
+    sql += ' AND nome LIKE ?'
+    params.push(`%${filtros.busca}%`)
+  }
+  if (filtros.tipo) { sql += ' AND tipo = ?'; params.push(filtros.tipo) }
+  sql += ' ORDER BY emitida_em DESC'
+  if (filtros.limite) { sql += ' LIMIT ?'; params.push(filtros.limite) }
+  return db.prepare(sql).all(...params)
+}
+
 function resumoBiblioteca() {
   dbOk()
   db.exec("UPDATE biblioteca_emprestimos SET status='atrasado' WHERE status='ativo' AND date('now','localtime') > data_prevista")
@@ -3336,5 +3389,5 @@ module.exports = {
   // Biblioteca (v5.15)
   listarBibliotecaLivros, getBibliotecaLivro, criarBibliotecaLivro, editarBibliotecaLivro, deletarBibliotecaLivro,
   listarBibliotecaEmprestimos, criarBibliotecaEmprestimo, devolverBibliotecaEmprestimo, deletarBibliotecaEmprestimo,
-  resumoBiblioteca,
+  resumoBiblioteca, registrarCarteirinha, listarCarteirinhas,
 }

@@ -446,6 +446,8 @@ ipcMain.handle('bib:emp:criar',       (_, dados, req)     => safe(() => db.criar
 ipcMain.handle('bib:emp:devolver',    (_, id, req)        => safe(() => db.devolverBibliotecaEmprestimo(id, req || {}), { ok: false }))
 ipcMain.handle('bib:emp:deletar',     (_, id, req)        => safe(() => db.deletarBibliotecaEmprestimo(id, req || {}), { ok: false }))
 ipcMain.handle('bib:resumo',          ()                  => safe(() => db.resumoBiblioteca(), {}))
+ipcMain.handle('bib:carteirinha:registrar', (_, dados, req) => safe(() => db.registrarCarteirinha(dados, req || {}), { ok: false }))
+ipcMain.handle('bib:carteirinha:listar',    (_, filtros)    => safe(() => db.listarCarteirinhas(filtros || {}), []))
 
 // ── Backup / Dump ───────────────────────────────────────────────────────────────
 ipcMain.handle('db:dump', () => {

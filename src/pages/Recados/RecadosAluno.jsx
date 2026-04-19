@@ -22,7 +22,7 @@ const PRIO_BADGE = {
 }
 
 export default function RecadosAluno({ alunoId, turmaId }) {
-  // alunoId e turmaId: IDs do localStorage (ls_id) do aluno logado
+  // alunoId e turmaId: IDs SQLite (alunos_db.id / turmas_db.id)
   const [recados, setRecados]   = useState([])
   const [naoLidos, setNaoLidos] = useState(0)
   const [loading, setLoading]   = useState(true)
@@ -33,7 +33,7 @@ export default function RecadosAluno({ alunoId, turmaId }) {
     if (!alunoId) return
     setLoading(true)
     try {
-      const params = { aluno_ls_id: alunoId, turma_ls_id: turmaId ?? -1 }
+      const params = { aluno_id: alunoId, turma_id: turmaId ?? -1 }
       const [data, count] = await Promise.all([
         api.recadosParaAluno(params),
         api.recadosNaoLidos(params),
@@ -51,7 +51,7 @@ export default function RecadosAluno({ alunoId, turmaId }) {
     const novoAberto = aberto === r.id ? null : r.id
     setAberto(novoAberto)
     if (novoAberto && !r.lido) {
-      await api.recadosMarcarLido({ recado_id: r.id, aluno_ls_id: alunoId })
+      await api.recadosMarcarLido({ recado_id: r.id, aluno_id: alunoId })
       setRecados(prev => prev.map(x => x.id === r.id ? { ...x, lido: 1 } : x))
       setNaoLidos(prev => Math.max(0, prev - 1))
     }
@@ -189,7 +189,7 @@ export function useRecadosBadge(alunoId, turmaId) {
   const atualizar = useCallback(async () => {
     if (!alunoId) return
     try {
-      const n = await api.recadosNaoLidos({ aluno_ls_id: alunoId, turma_ls_id: turmaId ?? -1 })
+      const n = await api.recadosNaoLidos({ aluno_id: alunoId, turma_id: turmaId ?? -1 })
       setCount(n ?? 0)
     } catch {}
   }, [alunoId, turmaId])

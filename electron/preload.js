@@ -160,7 +160,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   bibEmpCriar:      (dados, req)     => ipcRenderer.invoke('bib:emp:criar',      dados, req),
   bibEmpDevolver:   (id, req)        => ipcRenderer.invoke('bib:emp:devolver',   id, req),
   bibEmpDeletar:    (id, req)        => ipcRenderer.invoke('bib:emp:deletar',    id, req),
-  bibResumo:        ()               => ipcRenderer.invoke('bib:resumo'),
+  bibResumo:                ()               => ipcRenderer.invoke('bib:resumo'),
+  bibCarteirinhaRegistrar:  (dados, req)     => ipcRenderer.invoke('bib:carteirinha:registrar', dados, req),
+  bibCarteirinhaListar:     (filtros)        => ipcRenderer.invoke('bib:carteirinha:listar',    filtros),
 
   // Backup: dump SQLite puro
   dbDump:  ()              => ipcRenderer.invoke('db:dump'),

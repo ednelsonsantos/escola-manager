@@ -64,8 +64,8 @@ export function useRecadosAluno(aluno_id, turma_id) {
     setLoading(true);
     try {
       const [data, count] = await Promise.all([
-        ipc.invoke('recados:para-aluno', { aluno_id, turma_id }),
-        ipc.invoke('recados:nao-lidos-count', { aluno_id, turma_id }),
+        ipc.invoke('recados:paraAluno', { aluno_id, turma_id }),
+        ipc.invoke('recados:naoLidos', { aluno_id, turma_id }),
       ]);
       setRecados(data);
       setNaoLidos(count);
@@ -77,7 +77,7 @@ export function useRecadosAluno(aluno_id, turma_id) {
   useEffect(() => { carregar(); }, [carregar]);
 
   const marcarLido = useCallback(async (recado_id) => {
-    await ipc.invoke('recados:marcar-lido', { recado_id, aluno_id });
+    await ipc.invoke('recados:marcarLido', { recado_id, aluno_id });
     setRecados(prev =>
       prev.map(r => r.id === recado_id ? { ...r, lido: 1 } : r)
     );
