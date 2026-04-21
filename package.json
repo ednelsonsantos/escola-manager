@@ -68,7 +68,8 @@
     },
     "linux": {
       "target": ["AppImage", "deb"],
-      "category": "Education"
+      "category": "Education",
+      "maintainer": "Ednelson Santos <ednelsonchado@gmail.com>"
     }
   },
   "engines": {
