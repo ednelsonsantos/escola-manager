@@ -118,9 +118,7 @@ export function AppProvider({ children, user = null, onLogout = null }) {
           try {
             const dumpRes = await api.dbDump?.()
             if (dumpRes?.ok && dumpRes.dump) {
-              dados = { dump: dumpRes.dump, exportadoEm: new Date().toISOString(), versao: '5.15.0', migradoSQLite: true }
-              const json = dados.dump
-              await api.backupSalvar(json)
+              await api.backupSalvar(dumpRes.dump)
               api.backupDone()
               return
             }
