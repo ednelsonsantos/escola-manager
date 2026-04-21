@@ -39,6 +39,7 @@
   "build": {
     "appId": "com.escolamanager.app",
     "productName": "Escola Manager",
+    "icon": "build/icon.png",
     "directories": {
       "output": "release"
     },
@@ -67,8 +68,7 @@
     },
     "linux": {
       "target": ["AppImage", "deb"],
-      "category": "Education",
-      "icon": "build/icon.png"
+      "category": "Education"
     }
   },
   "engines": {
