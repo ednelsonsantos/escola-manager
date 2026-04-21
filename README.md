@@ -12,7 +12,7 @@ Sistema desktop completo para gestão de escolas de idiomas.
 
 ## 🚀 Instalação
 
-### Para usuários (Windows)
+### Para usuários — Windows
 
 1. Acesse a página de [Releases no GitHub](https://github.com/ednelsonsantos/escola-manager/releases/latest)
 2. Baixe o arquivo `Escola Manager Setup x.x.x.exe` (coluna **Assets**)
@@ -22,15 +22,51 @@ Sistema desktop completo para gestão de escolas de idiomas.
 
 > **Requisito:** Windows 10/11 64-bit
 
+### Para usuários — Linux
+
+#### AppImage (qualquer distro)
+
+1. Acesse a página de [Releases no GitHub](https://github.com/ednelsonsantos/escola-manager/releases/latest)
+2. Baixe o arquivo `Escola Manager-x.x.x.AppImage` (coluna **Assets**)
+3. Torne-o executável e rode:
+
+```bash
+chmod +x "Escola Manager-x.x.x.AppImage"
+./"Escola Manager-x.x.x.AppImage"
+```
+
+> Em algumas distros é possível dar duplo clique no `.AppImage` direto no gerenciador de arquivos.
+
+#### .deb (Ubuntu, Debian, Linux Mint e derivados)
+
+1. Baixe o arquivo `escola-manager_x.x.x_amd64.deb` na página de Releases
+2. Instale com:
+
+```bash
+sudo dpkg -i escola-manager_x.x.x_amd64.deb
+# ou
+sudo apt install ./escola-manager_x.x.x_amd64.deb
+```
+
+3. Abra pelo menu de aplicativos ou execute `escola-manager` no terminal
+
+> **Requisito:** Linux 64-bit (kernel 4.4+) · glibc 2.17+
+
 ### Para desenvolvedores
 
 ```bash
-npm install       # instala e recompila módulos nativos
-npm run dev       # modo desenvolvimento
-npm run build     # gera instalador .exe para Windows
+# Instalar dependências do sistema (Ubuntu/Debian)
+sudo apt-get install -y build-essential python3
+
+npm install            # instala e recompila módulos nativos
+npm run dev            # modo desenvolvimento
+npm run build          # gera instalador .exe (Windows)
+npm run build:linux    # gera .AppImage e .deb (Linux)
 ```
 
-**Requisitos:** Node.js 18 ou 20 · npm 9+ · Windows 10/11 64-bit
+**Requisitos:** Node.js 18 ou 20 · npm 9+
+- Windows: Windows 10/11 64-bit
+- Linux: Ubuntu 20.04+ ou equivalente · `build-essential` · `python3`
 
 ---
 
@@ -192,7 +228,9 @@ No módulo **Frequência**, ao abrir uma aula o professor pode marcar **"Profess
 
 A partir da **v5.15.1**, o backup automático gera um **dump SQL puro** de todas as 26 tabelas quando `migradoSQLite=true` (`PRAGMA foreign_keys=OFF` + `DELETE` + `INSERT` por tabela em transaction). A restauração detecta o formato automaticamente e aceita tanto dump SQL quanto JSON legado.
 
-Backups em: `%APPDATA%\Escola Manager\backups\` (últimos 10 mantidos automaticamente)
+Localização dos backups (últimos 10 mantidos automaticamente):
+- **Windows:** `%APPDATA%\Escola Manager\backups\`
+- **Linux:** `~/.config/Escola Manager/backups/`
 
 ---
 

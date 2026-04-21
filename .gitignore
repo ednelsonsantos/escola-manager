@@ -83,6 +83,7 @@ coverage/
 
 # ── Claude Code (memória local do assistente IA) ─────────────────────────────
 .claude/
+CLAUDE.md
 
 # ── Scripts de teste/seed (utilitários de desenvolvimento, não versionados) ──
 seed_*.js
