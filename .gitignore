@@ -85,6 +85,9 @@ coverage/
 .claude/
 CLAUDE.md
 
+# ── Continue (extensão VS Code) ──────────────────────────────────────────────
+.continue/
+
 # ── Scripts de teste/seed (utilitários de desenvolvimento, não versionados) ──
 seed_*.js
 check_*.js
