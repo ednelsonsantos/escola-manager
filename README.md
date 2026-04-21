@@ -1,4 +1,4 @@
-# 🎓 Escola Manager v5.15.2
+# 🎓 Escola Manager v5.15.3
 
 Sistema desktop completo para gestão de escolas de idiomas.
 **React 18 + Electron 29 + SQLite + PizZip · GPL-3.0 · Criado por Ednelson Santos**
@@ -386,6 +386,7 @@ O scheduler de recados agendados roda a cada 60s via `setInterval` no `main.js`.
 - [x] **v5.15.1** — Backup dump SQLite puro: `db:dump` gera SQL de todas as 26 tabelas (`PRAGMA foreign_keys=OFF` + `DELETE` + `INSERT` em transaction); `db:restaurarDump` detecta formato (dump SQL vs JSON legado) e executa restauração integrada; `AppContext.onBeforeClose` usa `dbDump()` quando migrado
 - [x] **v5.15.2** — Recados migrados para IDs SQLite reais: `recados_leituras.aluno_ls_id` renomeado para `aluno_id` (FK → `alunos_db.id`) com migration automática; `_criarLeituras` expandido para resolver destinatários `turma` e `todos` em alunos individuais ativos via `alunos_db`; `useRecados.js` com canais IPC corrigidos
 - [x] **v5.15.2** — Histórico de emissões de carteirinhas: tabela `biblioteca_carteirinhas` no SQLite, handlers IPC `bib:carteirinha:registrar` e `bib:carteirinha:listar`, registro automático após geração do PDF, tabela de histórico na aba Carteirinha com busca por nome e filtro por tipo (Aluno/Professor/Funcionário)
+- [x] **v5.15.3** — Port Linux: `build:linux` (AppImage + deb), `build/icon.ico` e `build/icon.png`, CI/CD refatorado com matrix strategy (Windows + Linux em paralelo via GitHub Actions)
 
 ### 🗄️ v6 — Migração para SQLite (✅ Concluída na v5.15.2)
 
