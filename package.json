@@ -1,6 +1,6 @@
 {
   "name": "escola-manager",
-  "version": "5.15.2",
+  "version": "5.15.3",
   "description": "Sistema de gestão para escolas de idiomas",
   "main": "electron/main.js",
   "scripts": {
@@ -12,7 +12,8 @@
     "dev:5174": "concurrently \"vite --port 5174\" \"wait-on http://localhost:5174 && VITE_DEV_URL=http://localhost:5174 electron .\"",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:ui": "vitest --ui"
+    "test:ui": "vitest --ui",
+    "build:linux": "vite build && electron-builder --linux"
   },
   "dependencies": {
     "better-sqlite3": "^9.6.0",
@@ -50,6 +51,7 @@
       "node_modules/better-sqlite3/**/*"
     ],
     "win": {
+      "icon": "build/icon.ico",
       "target": [
         {
           "target": "nsis",
@@ -63,6 +65,11 @@
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true
+    },
+    "linux": {
+      "target": ["AppImage", "deb"],
+      "category": "Education",
+      "icon": "build/icon.png"
     }
   },
   "engines": {

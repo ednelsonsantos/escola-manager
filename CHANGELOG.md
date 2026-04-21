@@ -4,6 +4,39 @@ Formato: [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/) · [SemVer]
 
 ---
 
+## [5.15.3] — 2026-04
+
+### Infraestrutura
+- **Port Linux** — configuração de build para AppImage e deb adicionada ao `package.json` (categoria `Education`, ícone `build/icon.png`)
+- **CI/CD** — workflow GitHub Actions refatorado com matrix strategy: builds Windows e Linux em paralelo em runners nativos (`windows-latest` / `ubuntu-latest`)
+- **Script `build:linux`** — novo script npm para gerar pacotes Linux localmente ou via CI
+- **Ícones** — adicionados `build/icon.ico` (Windows) e `build/icon.png` (Linux) ao repositório
+
+---
+
+## [5.15.2] — 2026-04
+
+### Adicionado
+- **Recados SQLite** — módulo de recados migrado para persistência em SQLite (tabelas `recados`, `recados_destinatarios`, `recados_leituras`)
+- **Histórico de carteirinhas** — registro e listagem de emissões de carteirinha da biblioteca em SQLite
+- **Backup dump SQLite** — geração e restauração de dump SQL puro via IPC (`db:dump`, `db:restaurarDump`)
+
+### Corrigido
+- **`calcularIdade`** — bug de off-by-one em UTC corrigido nos testes e na função
+
+---
+
+## [5.15.1] — 2026-04
+
+### Adicionado
+- **Backup dump SQLite** — exportação do banco completo como dump SQL (`db:dump`) e restauração integrada (`db:restaurarDump`)
+
+### Infraestrutura
+- Bateria de testes para `calcularIdade` e `registrarPagamento`
+- SEEDs removidos do repositório principal
+
+---
+
 ## [5.14.0] — 2026-03
 
 ### Adicionado

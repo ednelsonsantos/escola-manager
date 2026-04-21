@@ -14,7 +14,7 @@ const AUTOR = {
   cor:     '#63dcaa',
 }
 
-const VERSAO = '5.14.0'
+const VERSAO = '5.15.3'
 const ANO    = '2026'
 
 const MODULOS = [
